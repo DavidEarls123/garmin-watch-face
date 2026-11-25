@@ -3,11 +3,13 @@
 A live radar of the aircraft around you, designed for a round desktop screen. It is centred on Galway by default.
 
 - North-up scope with range rings, compass, a slow sweep and the local airfields (EICM, EINN, EIKN, EICA, EIIM)
+- A faint outline of the land, coast and larger lakes (Lough Corrib, Mask, Derg…) underneath, so you can place the traffic
 - Aircraft icons point along their track, are coloured by altitude and leave a short trail
 - Each label shows callsign, flight level or altitude, a climb/descent arrow and ground speed
 - A **Nearest / Overhead now** panel shows type, registration, distance and bearing
 - Emergency squawks (7500 / 7600 / 7700) flash red
 - Tap the screen (or press `+` / `-`) to cycle the range: 10, 20, 40, 80 nm
+- The ⚙ button (or `S`) changes the centre point: presets, typed coordinates, your device's location, or tap a spot on the map
 - If no live feed is reachable, it falls back to **demo traffic** (labelled `DEMO`)
 
 Altitude colours run green (low) → yellow (FL100) → amber (FL200) → red (FL300) → purple (FL400). Grey means on the ground.
@@ -49,6 +51,27 @@ python3 server.py --source readsb --readsb-url http://localhost:8080/data/aircra
 | `--host`, `--port` | 127.0.0.1, 8000 | Use `--host 0.0.0.0` to view from other devices on your network |
 
 The page also accepts URL overrides: `?lat=53.30&lon=-8.94&name=Carnmore&range=20`.
+
+### Changing the centre point
+
+Tap ⚙ (bottom-left) or press `S`. You can:
+
+- pick a preset (Galway, Carnmore, Shannon, Knock, Dublin),
+- type or paste coordinates (pasting `53.27, -9.05` into Latitude fills both boxes),
+- use the device's location, if it can provide one,
+- or choose **Pick on the map** and tap the spot.
+
+The choice is saved on that screen and survives restarts. **Reset** goes back to the server's `--lat`/`--lon`. The order of priority is: URL parameters, then the centre saved on the screen, then `--lat`/`--lon`, then Galway.
+
+With an online source, the server fetches traffic around whichever centre the screen asks for. With your own receiver, the centre only moves the view; the receiver still hears what it hears.
+
+## Map
+
+`geo.js` holds the land and lake outlines for Ireland and the surrounding area (longitude −12° to −3°, latitude 50.3° to 56.8°). If you move the centre outside that area, the traffic still works but there's no map underneath.
+
+To build a map for another area, edit the bounds at the top of `tools/build_geo.py` and follow the instructions in that file.
+
+Map data © OpenStreetMap contributors, available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1.0/), via [@geo-maps](https://github.com/simonepri/geo-maps) (1 km resolution).
 
 ## Putting it on a round screen
 

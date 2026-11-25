@@ -17,10 +17,57 @@
   html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
   body { display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   canvas { display: block; }
+  button, input { font: inherit; }
+  [hidden] { display: none !important; }
+  .gear { position: fixed; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 1px solid #2c5568;
+          background: rgba(3,9,13,.7); color: #8fb3c4; font-size: 20px; line-height: 1; display: grid; place-items: center;
+          cursor: pointer; opacity: .55; padding: 0; }
+  .gear:hover { opacity: 1; }
+  :focus-visible { outline: 2px solid #6aa7c4; outline-offset: 2px; }
+  .panel { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.55); cursor: default; }
+  /* sized to fit inside a round screen: the largest square in a circle is ~70% of its diameter */
+  .sheet { width: min(70vmin, 380px); max-height: 70vmin; overflow: auto; box-sizing: border-box; background: #0b1820;
+           border: 1px solid #2c5568; border-radius: 14px; padding: 14px; color: var(--text); display: grid; gap: 10px;
+           font: clamp(11px, 2.6vmin, 14px)/1.35 ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace; }
+  .sheet h2 { margin: 0; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: #8fb3c4; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sheet button { background: #10242f; color: var(--text); border: 1px solid #2c5568; border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  .sheet button:hover { border-color: #6aa7c4; }
+  .sheet button.primary { background: #2f7a8a; border-color: #3d97a9; color: #fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sheet label { display: grid; gap: 3px; font-size: .85em; color: var(--muted); min-width: 0; }
+  .sheet input { background: #03090d; border: 1px solid #2c5568; color: var(--text); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; box-sizing: border-box; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .err { color: #ff8a8a; font-size: .85em; min-height: 1.2em; margin: -4px 0; }
+  .fine { color: #4b6675; font-size: .75em; margin: 0; }
 </style>
 </head>
 <body>
 <canvas id="scope" aria-label="Radar showing aircraft overhead"></canvas>
+<button class="gear" id="gear" type="button" aria-label="Settings" title="Settings (S)">⚙</button>
+<div class="panel" id="panel" hidden>
+  <form class="sheet" id="sheet" novalidate>
+    <h2>Centre point</h2>
+    <div class="chips" id="presets"></div>
+    <label for="c-name">Name<input id="c-name" maxlength="16" autocomplete="off"></label>
+    <div class="row">
+      <label for="c-lat">Latitude<input id="c-lat" inputmode="decimal" autocomplete="off" placeholder="53.2707"></label>
+      <label for="c-lon">Longitude<input id="c-lon" inputmode="decimal" autocomplete="off" placeholder="-9.0568"></label>
+    </div>
+    <div class="err" id="c-err" role="alert"></div>
+    <div class="chips">
+      <button type="button" id="c-pick">Pick on the map</button>
+      <button type="button" id="c-here">Use my location</button>
+    </div>
+    <div class="actions">
+      <button type="button" id="c-reset">Reset</button>
+      <button type="button" id="c-cancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+    <p class="fine">Tip: paste “53.27, -9.05” straight into Latitude. Tap the radar to change range. Map data © OpenStreetMap contributors (ODbL).</p>
+  </form>
+</div>
+<script src="geo.js"></script>
 <script>
 (function () {
   'use strict';
@@ -38,9 +85,27 @@
     pollMs: 5000,
     demo: params.get('demo') === '1'
   };
-  if (params.get('lat')) CFG.lat = parseFloat(params.get('lat'));
-  if (params.get('lon')) CFG.lon = parseFloat(params.get('lon'));
+  var DEFAULT_CENTRE = { name: CFG.name, lat: CFG.lat, lon: CFG.lon };
+  var CENTRE_KEY = 'overhead-radar-centre';
+  function validCentre(c) {
+    return c && isFinite(c.lat) && isFinite(c.lon) && Math.abs(c.lat) <= 85 && Math.abs(c.lon) <= 180;
+  }
+  // Priority: URL parameters, then the centre saved on this screen, then server.py's --lat/--lon, then Galway.
+  var urlCentre = params.get('lat') !== null && params.get('lon') !== null;
+  var savedCentre = null;
+  try { savedCentre = JSON.parse(localStorage.getItem(CENTRE_KEY) || 'null'); } catch (e) { /* storage unavailable */ }
+  if (!validCentre(savedCentre)) savedCentre = null;
+  if (urlCentre) { CFG.lat = parseFloat(params.get('lat')); CFG.lon = parseFloat(params.get('lon')); }
+  else if (savedCentre) { CFG.lat = +savedCentre.lat; CFG.lon = +savedCentre.lon; if (savedCentre.name) CFG.name = String(savedCentre.name).toUpperCase(); }
   if (params.get('name')) CFG.name = params.get('name').toUpperCase();
+
+  var PRESETS = [
+    { name: 'Galway', lat: 53.2707, lon: -9.0568 },
+    { name: 'Carnmore', lat: 53.3003, lon: -8.9416 },
+    { name: 'Shannon', lat: 52.7020, lon: -8.9248 },
+    { name: 'Knock', lat: 53.9103, lon: -8.8185 },
+    { name: 'Dublin', lat: 53.4213, lon: -6.2701 }
+  ];
   try {
     var savedRange = localStorage.getItem('overhead-radar-range');
     if (savedRange !== null && CFG.ranges[+savedRange]) CFG.rangeIdx = +savedRange;
@@ -128,15 +193,51 @@
     });
   }
 
+  var pollTimer = null, pollSeq = 0, live = false;
   function poll() {
-    fetchJSON('api/aircraft').then(function (j) {
+    live = true;
+    clearTimeout(pollTimer);
+    var seq = ++pollSeq;
+    fetchJSON('api/aircraft?lat=' + CFG.lat.toFixed(4) + '&lon=' + CFG.lon.toFixed(4)).then(function (j) {
+      if (seq !== pollSeq) return; // centre changed while this request was in flight
       ingest(j.aircraft || [], Date.now());
       status.lastOk = Date.now();
       status.error = '';
       status.source = j.source || 'live';
     }).catch(function (e) {
       status.error = String(e.message || e);
-    }).then(function () { setTimeout(poll, CFG.pollMs); });
+    }).then(function () { if (seq === pollSeq) pollTimer = setTimeout(poll, CFG.pollMs); });
+  }
+
+  // ---------- land and lake outlines (geo.js), projected once per centre ----------
+  var geoPaths = null;
+  function buildGeo() {
+    var G = window.RADAR_GEO;
+    if (!G || !window.Path2D) { geoPaths = null; return; }
+    function mk(rings, close) {
+      var path = new Path2D();
+      rings.forEach(function (r) {
+        for (var i = 0; i < r.length; i += 2) {
+          var xy = toXY(r[i + 1], r[i]);
+          if (i) path.lineTo(xy[0], xy[1]); else path.moveTo(xy[0], xy[1]);
+        }
+        if (close) path.closePath();
+      });
+      return path;
+    }
+    geoPaths = { land: mk(G.land, true), coast: mk(G.coast, false), lakes: mk(G.lakes, true) };
+  }
+
+  function setCentre(lat, lon, name, persist) {
+    CFG.lat = lat; CFG.lon = lon;
+    if (name) CFG.name = String(name).toUpperCase();
+    planes.clear();
+    status.lastOk = 0;
+    buildGeo();
+    if (persist) {
+      try { localStorage.setItem(CENTRE_KEY, JSON.stringify({ name: name || '', lat: lat, lon: lon })); } catch (e) { /* ignore */ }
+    }
+    if (live) poll(); else if (status.source === 'DEMO') status.lastOk = Date.now();
   }
 
   // ---------- demo traffic (used when no server is reachable) ----------
@@ -258,6 +359,23 @@
 
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+
+    // land, coast and lakes
+    if (geoPaths) {
+      ctx.save();
+      ctx.setTransform(k, 0, 0, -k, cx, cy);
+      ctx.fillStyle = 'rgba(70,112,96,0.20)';
+      ctx.fill(geoPaths.land, 'evenodd');
+      ctx.fillStyle = 'rgba(3,12,18,0.55)';
+      ctx.fill(geoPaths.lakes);
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(1, u * 0.18) / k;
+      ctx.strokeStyle = 'rgba(110,165,145,0.50)';
+      ctx.stroke(geoPaths.coast);
+      ctx.strokeStyle = 'rgba(110,165,170,0.32)';
+      ctx.stroke(geoPaths.lakes);
+      ctx.restore();
+    }
 
     // sweep
     if (!reduceMotion && ctx.createConicGradient) {
@@ -423,6 +541,18 @@
       ctx.fillText(nearest.d.toFixed(1) + ' nm ' + bearingName(nearest.x, nearest.y) + (p.reg ? '  ·  ' + p.reg : ''), cx, y0 + ch * 0.9);
     }
 
+    if (geoPaths) {
+      ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#3b5563'; ctx.font = (u * 1.4) + 'px ' + FONT;
+      ctx.fillText('© OpenStreetMap', cx - R * 0.08, cy + R * 0.92);
+    }
+    if (picking) {
+      ctx.fillStyle = 'rgba(3,9,13,.85)';
+      roundRect(cx - R * 0.5, cy - R * 0.36, R, R * 0.14, u * 1.5); ctx.fill();
+      ctx.fillStyle = '#ffb547'; ctx.font = '600 ' + (u * 2.4) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('TAP THE NEW CENTRE', cx, cy - R * 0.29);
+    }
+
     requestAnimationFrame(frame);
   }
 
@@ -431,18 +561,95 @@
     CFG.rangeIdx = (i + CFG.ranges.length) % CFG.ranges.length;
     try { localStorage.setItem('overhead-radar-range', String(CFG.rangeIdx)); } catch (e) { /* ignore */ }
   }
-  document.addEventListener('click', function () { setRange(CFG.rangeIdx + 1); });
+  var picking = false;
+  canvas.addEventListener('click', function (e) {
+    if (!picking) { setRange(CFG.rangeIdx + 1); return; }
+    // convert the tap to lat/lon and reopen the settings with it filled in
+    var rect = canvas.getBoundingClientRect(), R = rect.width / 2 * 0.94, k = R / CFG.ranges[CFG.rangeIdx];
+    var x = (e.clientX - rect.left - rect.width / 2) / k, y = -(e.clientY - rect.top - rect.height / 2) / k;
+    var ll = fromXY(x, y);
+    picking = false;
+    openSettings({ name: '', lat: ll[0], lon: ll[1] });
+  });
   document.addEventListener('keydown', function (e) {
+    if (!panel.hidden) { if (e.key === 'Escape') closeSettings(); return; }
+    if (e.key === 'Escape') picking = false;
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); openSettings(); }
     if (e.key === '+' || e.key === '=' || e.key === 'ArrowUp') setRange(CFG.rangeIdx - 1);
     if (e.key === '-' || e.key === 'ArrowDown') setRange(CFG.rangeIdx + 1);
   });
 
+  // ---------- settings panel: centre point ----------
+  var gear = document.getElementById('gear'), panel = document.getElementById('panel'), sheet = document.getElementById('sheet');
+  var fName = document.getElementById('c-name'), fLat = document.getElementById('c-lat'), fLon = document.getElementById('c-lon');
+  var fErr = document.getElementById('c-err'), hereBtn = document.getElementById('c-here');
+  function fill(c) { fName.value = c.name || ''; fLat.value = (+c.lat).toFixed(4); fLon.value = (+c.lon).toFixed(4); fErr.textContent = ''; }
+  function openSettings(c) {
+    fill(c || { name: CFG.name.charAt(0) + CFG.name.slice(1).toLowerCase(), lat: CFG.lat, lon: CFG.lon });
+    panel.hidden = false;
+    fLat.focus();
+  }
+  function closeSettings() { panel.hidden = true; }
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = p.name;
+    b.addEventListener('click', function () { fill(p); });
+    document.getElementById('presets').appendChild(b);
+  });
+  fLat.addEventListener('input', function () {
+    // accept "53.27, -9.05" pasted into one box
+    var m = fLat.value.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (m) { fLat.value = m[1]; fLon.value = m[2]; fLon.focus(); }
+  });
+  gear.addEventListener('click', function () { openSettings(); });
+  panel.addEventListener('click', function (e) { if (e.target === panel) closeSettings(); });
+  document.getElementById('c-cancel').addEventListener('click', closeSettings);
+  document.getElementById('c-pick').addEventListener('click', function () { closeSettings(); picking = true; });
+  document.getElementById('c-reset').addEventListener('click', function () {
+    try { localStorage.removeItem(CENTRE_KEY); } catch (e) { /* ignore */ }
+    fill(serverCentre || DEFAULT_CENTRE);
+  });
+  if (!navigator.geolocation) hereBtn.hidden = true;
+  hereBtn.addEventListener('click', function () {
+    fErr.textContent = 'Finding your location…';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      fill({ name: 'Home', lat: pos.coords.latitude, lon: pos.coords.longitude });
+    }, function () {
+      fErr.textContent = 'This device couldn’t share its location. Enter it by hand or pick on the map.';
+    }, { timeout: 10000 });
+  });
+  sheet.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var lat = parseFloat(fLat.value), lon = parseFloat(fLon.value);
+    if (!validCentre({ lat: lat, lon: lon })) {
+      fErr.textContent = 'Enter latitude between -85 and 85 and longitude between -180 and 180, e.g. 53.27 and -9.05.';
+      return;
+    }
+    setCentre(lat, lon, fName.value.trim() || 'Custom', true);
+    closeSettings();
+  });
+
+  function placeGear() {
+    // bottom-left, just inside the scope edge
+    var r = S / 2 * 0.94 * 0.8, a = 220 * D2R;
+    gear.style.left = (window.innerWidth / 2 + Math.sin(a) * r) + 'px';
+    gear.style.top = (window.innerHeight / 2 - Math.cos(a) * r) + 'px';
+  }
+  window.addEventListener('resize', placeGear);
+  placeGear();
+
   // ---------- start ----------
+  var serverCentre = null;
+  buildGeo();
   requestAnimationFrame(frame);
   if (CFG.demo) { startDemo(); return; }
   fetchJSON('api/config').then(function (c) {
-    if (!params.get('lat') && c.lat != null) { CFG.lat = c.lat; CFG.lon = c.lon; }
-    if (!params.get('name') && c.name) CFG.name = String(c.name).toUpperCase();
+    if (c.lat != null) serverCentre = { name: c.name || '', lat: c.lat, lon: c.lon };
+    if (!urlCentre && !savedCentre && serverCentre) {
+      CFG.lat = c.lat; CFG.lon = c.lon;
+      if (!params.get('name') && c.name) CFG.name = String(c.name).toUpperCase();
+      buildGeo();
+    }
     if (c.poll_seconds) CFG.pollMs = c.poll_seconds * 1000;
     poll();
   }).catch(function () { startDemo(); });

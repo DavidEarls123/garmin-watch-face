@@ -18,6 +18,7 @@ import functools
 import json
 import threading
 import time
+import urllib.parse
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -63,18 +64,23 @@ class Feed:
         self.args = args
         self.lock = threading.Lock()
         self.cached = None
+        self.cached_key = None
         self.fetched_at = 0.0
 
-    def url(self):
+    def url(self, lat, lon):
         if self.args.source == "readsb":
             return self.args.readsb_url
-        return SOURCES[self.args.source].format(lat=self.args.lat, lon=self.args.lon, radius=self.args.radius)
+        return SOURCES[self.args.source].format(lat=lat, lon=lon, radius=self.args.radius)
 
-    def get(self):
+    def get(self, lat=None, lon=None):
+        """lat/lon: centre chosen on the screen; defaults to --lat/--lon. Ignored for a local receiver."""
+        lat = self.args.lat if lat is None else round(lat, 3)
+        lon = self.args.lon if lon is None else round(lon, 3)
+        key = None if self.args.source == "readsb" else (lat, lon)
         with self.lock:
-            if self.cached and time.time() - self.fetched_at < self.args.interval:
+            if self.cached and key == self.cached_key and time.time() - self.fetched_at < self.args.interval:
                 return self.cached
-            req = urllib.request.Request(self.url(), headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+            req = urllib.request.Request(self.url(lat, lon), headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
             with urllib.request.urlopen(req, timeout=10) as r:
                 raw = json.load(r)
             records = raw.get("ac") or raw.get("aircraft") or []
@@ -84,6 +90,7 @@ class Feed:
             for a in aircraft:
                 a["seen"] = round(a["seen"] + fetch_lag, 1)
             self.cached = {"source": self.args.source, "now": time.time(), "aircraft": aircraft}
+            self.cached_key = key
             self.fetched_at = time.time()
             return self.cached
 
@@ -106,17 +113,25 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        path, _, query = self.path.partition("?")
         if path == "/api/config":
             return self.send_json({"name": self.args.name, "lat": self.args.lat, "lon": self.args.lon,
                                    "poll_seconds": self.args.interval, "source": self.args.source})
         if path == "/api/aircraft":
+            q = urllib.parse.parse_qs(query)
             try:
-                return self.send_json(self.feed.get())
+                lat = float(q["lat"][0]) if "lat" in q else None
+                lon = float(q["lon"][0]) if "lon" in q else None
+                if (lat is not None and not -85 <= lat <= 85) or (lon is not None and not -180 <= lon <= 180):
+                    raise ValueError
+            except ValueError:
+                return self.send_json({"error": "lat must be -85..85 and lon -180..180"}, 400)
+            try:
+                return self.send_json(self.feed.get(lat, lon))
             except Exception as e:  # upstream down, network error, bad JSON…
                 self.log_error("feed error: %s", e)
                 return self.send_json({"error": str(e)}, 502)
-        if path not in ("/", "/index.html"):
+        if path not in ("/", "/index.html", "/geo.js"):
             self.send_error(404)
             return
         return super().do_GET()
