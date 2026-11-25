@@ -1,5 +1,35 @@
 # Building the Overhead Radar
 
+## Shopping list (Amazon.ie, checked November 2026)
+
+Prices are approximate and Amazon listings change often, so check each one before ordering. Ireland uses the same Type G plug as the UK, so "UK plug" power supplies are correct.
+
+| # | Item | Link | Approx. |
+|---|---|---|---|
+| 1 | **Waveshare 5″ HDMI round capacitive touch display, 1080×1080** | [amazon.ie/dp/B0C14CZ2GG](https://www.amazon.ie/dp/B0C14CZ2GG) | €165–176 |
+| 2 | **Raspberry Pi 5 (4 GB)** | [amazon.ie/dp/B0CK3L9WD3](https://www.amazon.ie/dp/B0CK3L9WD3) | €160–165 |
+| 3 | Raspberry Pi 5 power supply, 27 W, UK plug | [amazon.ie/dp/B0F8B4QHLJ](https://www.amazon.ie/dp/B0F8B4QHLJ) | ~€15 |
+| 4 | SanDisk Extreme 32 GB microSD (A1) | [amazon.ie/dp/B06XYTDCC5](https://www.amazon.ie/dp/B06XYTDCC5) | ~€13 |
+| 5 | Micro-HDMI to HDMI cable, 30 cm (Silkland) | [search "Silkland micro HDMI 30cm"](https://www.amazon.ie/s?k=Silkland+micro+HDMI+to+HDMI+30cm) | ~€10 |
+| 6 | Raspberry Pi 5 Active Cooler (the case is enclosed) | [search](https://www.amazon.ie/s?k=raspberry+pi+5+active+cooler) | ~€8 |
+| 7 | M2 / M2.5 / M3 screw kit (874 pcs, 6–12 mm) | [amazon.ie/dp/B0DRSKGTH3](https://www.amazon.ie/dp/B0DRSKGTH3) | ~€11 |
+| 8 | 1 mm double-sided foam tape | [search](https://www.amazon.ie/s?k=1mm+foam+tape+double+sided) | ~€6 |
+| *Optional receiver* | | | |
+| 9 | RTL-SDR Blog V4 dongle | [amazon.ie/dp/B0CD745394](https://www.amazon.ie/dp/B0CD745394) | ~€55 |
+| 10 | Bingfu 1090 MHz magnetic antenna (SMA, 3 m lead) | [amazon.ie/dp/B07ZH5FJBW](https://www.amazon.ie/dp/B07ZH5FJBW) | ~€15 |
+
+The total is about €390 without the receiver, or €460 with it.
+
+- **Cheaper Pi:** Amazon.ie prices for the Pi are well above the official price. A Pi 5 bought from an approved Raspberry Pi reseller (several ship to Ireland) typically costs around half as much.
+- **Smaller, cheaper screen:** the Waveshare 3.4″ HDMI round touch display (800×800, around €107 on Amazon.ie) also works, but it's harder to read from across a desk. You would need to measure it and set the case dimensions yourself.
+- **Screw kit:** it has countersunk heads only up to 12 mm. The bezel needs M3 × 16, so either buy a few M3 × 16 cap screws separately, or set `lip_t`/`margin` so M3 × 12 is long enough (the screw needs about 6 mm of thread in the box).
+
+### Case files for this screen
+
+`case/stl/waveshare-5in-round/` holds STLs already sized for the 5″ Waveshare round display. They use the dimensions Waveshare publishes: 150 mm round panel, 127.6 mm visible area, 7 mm deep, with 50 mm of space behind for the Pi and cables. The outer size is 178 mm, which fits a 220 mm print bed.
+
+The published drawing doesn't show where the HDMI and USB-C sockets on the back of the panel sit. When the screen arrives, check that its connectors fit inside the 144 mm opening of the retaining ring and that the plugs have room behind. Increase `depth` if they don't.
+
 ## Parts list
 
 | Part | Recommendation | Approx. cost |
