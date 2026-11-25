@@ -1,0 +1,418 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>[hidden]{display:none!important}</style>
+<title>Radar Case Build</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: workshop sheet. A large 3D stage with its controls, then a numbered build procedure with parts, screws and checks. */
+:root {
+  --bg: #f3f4f1;
+  --panel: #ffffff;
+  --line: #d9dcd6;
+  --fg: #1d2124;
+  --muted: #5d666d;
+  --accent: #d9741f;
+  --accent-ink: #ffffff;
+  --stage: #e7e9e4;
+  --ok: #2f8f5b;
+  --warn: #b5651d;
+  --display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111416; --panel: #181c1f; --line: #2a3034; --fg: #e6e9eb; --muted: #97a1a8;
+    --accent: #f08a35; --accent-ink: #1a1208; --stage: #0c0f11; --ok: #5cc98d; --warn: #f0a85c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111416; --panel: #181c1f; --line: #2a3034; --fg: #e6e9eb; --muted: #97a1a8;
+  --accent: #f08a35; --accent-ink: #1a1208; --stage: #0c0f11; --ok: #5cc98d; --warn: #f0a85c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 56px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+header { padding-block: 32px 18px; display: grid; gap: 6px; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(30px, 5.5vw, 46px)/1.05 var(--display); margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 68ch; }
+
+.viewer { display: grid; grid-template-columns: 1fr 260px; gap: 14px; align-items: start; }
+@media (max-width: 820px) { .viewer { grid-template-columns: 1fr; } }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 3; max-width: 100%; min-height: 280px; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.stage .hint { position: absolute; left: 12px; bottom: 10px; font: 12px var(--mono); color: var(--muted); pointer-events: none; }
+.stage .loading { position: absolute; inset: 0; display: grid; place-items: center; font: 13px var(--mono); color: var(--muted); }
+.controls { display: grid; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.controls h2 { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--fg); padding: 9px; font: 600 14px var(--body); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 999px; padding: 6px 12px; font: 13px var(--body); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.parts { display: grid; gap: 4px; }
+.parts label { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.sw { width: 12px; height: 12px; border-radius: 3px; flex: none; border: 1px solid rgba(0,0,0,.25); }
+.dims { font: 12px/1.5 var(--mono); color: var(--muted); margin: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+section { display: grid; gap: 14px; padding-top: 36px; }
+h2.sec { font: 700 26px/1.15 var(--display); margin: 0; padding-top: 22px; border-top: 1px solid var(--line); text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); max-width: 70ch; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); white-space: nowrap; }
+ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: 12px; }
+ol.steps > li { counter-increment: s; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 14px 60px; position: relative; min-width: 0; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 14px; top: 13px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 700 15px/32px var(--display); text-align: center; }
+ol.steps h3 { margin: 0 0 4px; font: 600 17px/1.3 var(--display); }
+ol.steps p, ol.steps ul { margin: 6px 0 0; }
+ol.steps ul { padding-left: 18px; }
+.need { font: 12px/1.5 var(--mono); color: var(--muted); }
+.check { color: var(--ok); font-weight: 600; }
+.warn { color: var(--warn); font-weight: 600; }
+code, pre { font-family: var(--mono); font-size: 13px; }
+pre { background: var(--stage); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 8px 0 0; white-space: pre; }
+code { background: var(--stage); padding: 1px 5px; border-radius: 4px; }
+pre code { background: none; padding: 0; }
+.trouble { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.trouble div { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--panel); min-width: 0; }
+.trouble b { display: block; font-family: var(--display); }
+.trouble p { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Overhead Radar · Waveshare 5″ round · Raspberry Pi 5</div>
+  <h1>Radar case build</h1>
+  <p class="lede">Turn the model to see how the parts fit. Use the slider to pull them apart, then follow the steps below once your parts arrive.</p>
+</header>
+
+<div class="viewer">
+  <div class="stage" id="stage">
+    <div class="loading" id="loading">Loading 3D model…</div>
+    <div class="hint">Drag to turn · scroll or pinch to zoom</div>
+  </div>
+  <div class="controls">
+    <div>
+      <h2>Style</h2>
+      <div class="seg" role="group" aria-label="Case style">
+        <button type="button" id="st-instrument" aria-pressed="true">Instrument</button>
+        <button type="button" id="st-puck" aria-pressed="false">Puck</button>
+      </div>
+    </div>
+    <div>
+      <h2><label for="explode">Explode</label></h2>
+      <input type="range" id="explode" min="0" max="1" step="0.01" value="0">
+    </div>
+    <div>
+      <h2>View</h2>
+      <div class="row">
+        <button type="button" class="btn" data-view="front">Front</button>
+        <button type="button" class="btn" data-view="side">Side</button>
+        <button type="button" class="btn" data-view="back">Back</button>
+        <button type="button" class="btn" id="spin" aria-pressed="false">Spin</button>
+      </div>
+    </div>
+    <div>
+      <h2>Parts</h2>
+      <div class="parts" id="parts"></div>
+    </div>
+    <p class="dims" id="dims"></p>
+  </div>
+</div>
+
+<section>
+  <h2 class="sec">What to print</h2>
+  <p class="sub">The files are in <code>overhead-radar/case/stl/waveshare-5in-round/</code>. Print one style.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Instrument style</th><th>Puck style</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="num">instrument_bezel.stl</td><td class="num">puck_bezel.stl</td><td>Prints face-down. A textured bed sheet gives a nice front.</td></tr>
+      <tr><td class="num">instrument_box.stl</td><td class="num">puck_body.stl</td><td>Prints back-down. This is the longest print.</td></tr>
+      <tr><td class="num">retaining_ring.stl</td><td class="num">puck_retaining_ring.stl</td><td>The puck ring is trimmed to clear the flat underside. Don't swap them.</td></tr>
+      <tr><td class="num">instrument_stand.stl</td><td>none</td><td>Prints standing on its foot as exported. You can also lay it on its side.</td></tr>
+      <tr><td class="num">antenna_grommet.stl</td><td class="num">antenna_grommet.stl</td><td>Tiny. Print two in case one snaps.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub">Settings: PETG or PLA, 0.2 mm layers, 3 walls, 15–20 % infill, <b>no supports</b>. Print the retaining ring and the bezel first and test-fit the screen before committing to the box.</p>
+</section>
+
+<section>
+  <h2 class="sec">Screws and bits</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Qty</th><th>Item</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td class="num">4 (puck: 3)</td><td>M3 × 12 or M3 × 16 button head</td><td>Bezel to box/body, threaded into the printed pilot holes</td></tr>
+      <tr><td class="num">4</td><td>M2.5 × 8 button head</td><td>Retaining ring into the back of the bezel</td></tr>
+      <tr><td class="num">4</td><td>M2.5 × 6 or × 8 button head</td><td>Raspberry Pi onto the standoffs</td></tr>
+      <tr><td class="num">~0.5 m</td><td>6 mm foam tape (1 mm thick)</td><td>Cushion between the ring and the screen, plus a strip to hold the dongle</td></tr>
+      <tr><td class="num">tools</td><td>2 mm and 1.5 mm hex keys (in the screw kit), a soft cloth, a microSD reader on a computer</td><td></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2 class="sec">Assembly</h2>
+  <p class="sub">Steps 1–3 test everything on the bench before it goes into the case. That way, if something doesn't work, you're not unscrewing a finished build.</p>
+  <ol class="steps">
+    <li>
+      <h3>Prepare the microSD card</h3>
+      <p class="need">Need: microSD card, a computer</p>
+      <ul>
+        <li>Install <b>Raspberry Pi Imager</b> on your computer. Choose <i>Raspberry Pi 5</i> → <i>Raspberry Pi OS (64-bit)</i>, the version with the desktop.</li>
+        <li>In the settings (the cog, or <i>Edit settings</i>), set a username and password and your Wi-Fi, and tick <i>Enable SSH</i>.</li>
+        <li>Write the card, then put it in the Pi.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Fit the Active Cooler and bench test the screen</h3>
+      <p class="need">Need: Pi 5, Active Cooler, screen, micro-HDMI cable, the screen's USB cable, power supply</p>
+      <ul>
+        <li>Peel the film off the cooler's thermal pads. Push its two spring pins into the matching holes on the Pi until they click, then plug the fan lead into the <b>FAN</b> socket.</li>
+        <li>Connect the micro-HDMI cable to <b>HDMI 0</b>, the port next to the USB-C power socket. Connect the screen's USB cable to a Pi USB port; this carries touch and power for the screen.</li>
+        <li>Plug in the power supply. The desktop should appear on the round screen and respond to touch.</li>
+        <li class="warn">Put a small piece of tape on the screen's edge that is the top of the picture. You'll need it in step 6.</li>
+        <li>If the picture is blank or the wrong size, follow the "5inch 1080x1080 LCD" page on the Waveshare wiki for the lines to add to <code>config.txt</code>.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Install the radar software</h3>
+      <p class="need">Need: the Pi on Wi-Fi, the RTL-SDR dongle, the USB extension, the antenna</p>
+      <ul>
+        <li>Plug the dongle into the USB extension and the extension into a Pi USB port. Screw the antenna's <b>SMA</b> plug onto the dongle; you don't need the MCX adapter.</li>
+        <li>Open a terminal on the Pi and fetch the project. The work is on its own branch until you merge it:</li>
+      </ul>
+<pre><code>git clone -b claude/garmin-forerunner-watchface-options-esgt9b https://github.com/davidearls123/garmin-watch-face.git
+cd garmin-watch-face/overhead-radar
+sudo ./tools/setup-pi.sh --with-receiver --lat 53.2707 --lon -9.0568 --name Galway</code></pre>
+      <ul>
+        <li>If the repository is private, Git will ask you to sign in. Use your GitHub username and a personal access token as the password.</li>
+        <li>When it finishes, run <code>sudo reboot</code>. The radar should open full screen. Under the clock it should say <b>RECEIVER+ADSBLOL</b>.</li>
+        <li class="check">Check: tap a plane to see its details, use + and − to zoom, use the pin button to change place, and use ✈ to track a flight.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Shut down and unplug everything</h3>
+      <p>Run <code>sudo shutdown now</code>, wait for the green light to stop flashing, then unplug the power and the cables.</p>
+    </li>
+    <li>
+      <h3>Pad the retaining ring</h3>
+      <p class="need">Need: retaining ring, foam tape</p>
+      <ul>
+        <li>Stick the foam tape around the <b>flat face</b> of the ring, close to its inner edge, so it covers the 3 mm band that presses on the back edge of the screen. Butt the ends together; don't overlap them.</li>
+        <li class="warn">Leave the green backing film on the exposed side. The foam is then a cushion, not glue, and the screen can come out again.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Put the screen into the bezel</h3>
+      <p class="need">Need: bezel, screen, retaining ring, 4 × M2.5 × 8</p>
+      <ul>
+        <li>Lay the bezel face-down on a soft cloth. Wipe the glass, then drop the screen face-down into the pocket.</li>
+        <li>Turn it so the <b>taped top edge</b> is at the top of the bezel. For the instrument style, the top is opposite the stand window. For the puck, the top is opposite the flat underside.</li>
+        <li>Lay the ring over the back of the screen, foam down, and screw it in with the four M2.5 × 8. Tighten them in a cross pattern until they just stop. The glass only needs holding, so <b>don't overtighten</b>.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Mount the Pi in the box</h3>
+      <p class="need">Need: box or body, Pi, 4 × M2.5 × 6 or 8</p>
+      <ul>
+        <li>Screw the Pi onto the four standoffs, cooler facing up (towards the screen). The screws cut their own thread the first time, so turn firmly but stop when snug.</li>
+        <li>From outside, feed the <b>power supply's USB-C plug</b> in through the large 16 mm hole and plug it into the Pi.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Fit the dongle and the antenna lead</h3>
+      <p class="need">Need: dongle, USB extension, antenna, grommet, foam tape</p>
+      <ul>
+        <li>Plug the USB extension into the Pi and the dongle into the extension. Stick the dongle to the floor with a strip of foam tape, as far from the Pi as it will go.</li>
+        <li>From <b>outside</b>, push the antenna's SMA plug in through the 13 mm port and screw it onto the dongle.</li>
+        <li>Click the antenna cable sideways into the grommet's slot, then press the grommet into the port from outside until it snaps.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Connect the screen and close the case</h3>
+      <p class="need">Need: micro-HDMI cable, the screen's USB cable, 4 × M3 × 12/16 (puck: 3)</p>
+      <ul>
+        <li>Connect the micro-HDMI (Pi HDMI 0) and the screen's USB cable between the bezel assembly and the Pi. Tuck the cables down beside the Pi so they don't press on the screen.</li>
+        <li>Fit the bezel onto the box with the top edges matching. Drive the M3 button-head screws into the corner holes until the heads sit in their recesses.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Stand it up and place the antenna</h3>
+      <ul>
+        <li><b>Instrument:</b> sit the box in the stand with its underside on the shelf and its back against the rest. The power and antenna leads come out through the window in the rest.</li>
+        <li><b>Puck:</b> stand it on its flat underside. It leans back on its own.</li>
+        <li>Put the antenna upright in a window, as high as you can and away from the Pi. The magnetic base works best on a metal plate, such as a biscuit-tin lid.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Power on and finish setup</h3>
+      <ul>
+        <li>Plug in the power. The radar starts by itself after about a minute.</li>
+        <li>Open the pin button, choose <b>Add a place…</b>, and save your house and the airfields you use.</li>
+        <li>After a day or two of running, the receiver can tune its gain. Plug in a keyboard, or connect over SSH, and run <code>sudo readsb-gain autogain</code>.</li>
+      </ul>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <h2 class="sec">If something's not right</h2>
+  <div class="trouble">
+    <div><b>Screen stays black</b><p>Use HDMI 0, the port next to the power socket. Check the screen's USB cable is plugged in; it powers the screen. Then add the Waveshare <code>config.txt</code> lines.</p></div>
+    <div><b>Touch doesn't respond</b><p>The touch signal travels over the screen's USB cable, so make sure that cable goes to the Pi and not just to a charger.</p></div>
+    <div><b>Picture is upside down or sideways</b><p>Rotate it in the Pi's <i>Screen Configuration</i> tool, or turn the screen in the bezel (steps 5–6).</p></div>
+    <div><b>Says ADSBLOL only, no RECEIVER</b><p>Run <code>lsusb</code>; it should list a Realtek RTL2838 device. Then run <code>journalctl -u readsb -n 50</code> to see the receiver's log.</p></div>
+    <div><b>Radar doesn't open at boot</b><p>Run <code>journalctl -u overhead-radar -n 50</code>. Opening <code>http://localhost:8000</code> in a browser tells you whether the server is running.</p></div>
+    <div><b>Few planes on the receiver</b><p>Move the antenna higher and nearer the window, away from the Pi, and stand it on metal. Run autogain after a day.</p></div>
+  </div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function () {
+  var PARTS = [
+    // name, label, colour, explode distance along the screen's normal (mm; + = towards the viewer)
+    ['bezel', 'Bezel', '#2e323a', 70],
+    ['glass', 'Screen (visible area)', '#10405a', 52],
+    ['screen', 'Waveshare 5″ screen', '#131416', 52],
+    ['ring', 'Retaining ring', '#dc7828', 30],
+    ['pi', 'Raspberry Pi 5 + cooler', '#1e783c', 0],
+    ['body', 'Box / body', '#404650', -45],
+    ['grommet', 'Antenna grommet', '#e6aa28', -85],
+    ['stand', 'Stand', '#9aa0a8', 0]
+  ];
+  var DIMS = {
+    instrument: 'Bezel 178 × 178 mm · depth 63 mm · stand 128 × 82 mm footprint · leans back 15°',
+    puck: 'Ø 178 mm · depth 63 mm · flat underside, leans back 15°'
+  };
+  // the screen's outward normal in model coordinates (both styles lean back by 15°)
+  var t = 15 * Math.PI / 180, N = new THREE.Vector3(0, -Math.cos(t), Math.sin(t));
+
+  var stage = document.getElementById('stage'), loadingEl = document.getElementById('loading');
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  stage.insertBefore(renderer.domElement, stage.firstChild);
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(35, 4 / 3, 1, 5000);
+  var controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445055, 0.85));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(-300, 500, 400); scene.add(sun);
+  var fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(300, 200, -300); scene.add(fill);
+
+  var root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root); // model is Z-up
+  var nodes = {}, current = null, cache = {}, explode = 0, visible = {};
+  PARTS.forEach(function (p) { visible[p[0]] = true; });
+
+  var partsBox = document.getElementById('parts');
+  PARTS.forEach(function (p) {
+    var l = document.createElement('label');
+    l.innerHTML = '<input type="checkbox" checked> <span class="sw"></span> <span></span>';
+    l.querySelector('.sw').style.background = p[2];
+    l.lastElementChild.textContent = p[1];
+    l.firstElementChild.id = 'part-' + p[0];
+    l.firstElementChild.addEventListener('change', function (e) { visible[p[0]] = e.target.checked; apply(); });
+    partsBox.appendChild(l);
+  });
+
+  function materialFor(name) {
+    var p = PARTS.filter(function (q) { return q[0] === name; })[0];
+    var m = new THREE.MeshStandardMaterial({ color: p ? p[2] : '#888888', roughness: name === 'glass' ? 0.25 : 0.72, metalness: name === 'glass' ? 0.2 : 0.05, flatShading: true });
+    return m;
+  }
+
+  function load(style) {
+    if (cache[style]) return Promise.resolve(cache[style]);
+    loadingEl.hidden = false;
+    return new Promise(function (resolve, reject) {
+      new THREE.GLTFLoader().load(style + '.json', function (gltf) {
+        var g = gltf.scene, map = {};
+        g.traverse(function (o) {
+          if (o.isMesh) {
+            var name = o.name || (o.parent && o.parent.name);
+            o.material = materialFor(name);
+            var edges = new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 35), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }));
+            o.add(edges);
+            map[name] = o;
+            o.userData.base = o.position.clone();
+          }
+        });
+        cache[style] = { group: g, map: map };
+        resolve(cache[style]);
+      }, undefined, reject);
+    }).finally(function () { loadingEl.hidden = true; });
+  }
+
+  function apply() {
+    if (!current) return;
+    Object.keys(current.map).forEach(function (name) {
+      var o = current.map[name], p = PARTS.filter(function (q) { return q[0] === name; })[0];
+      o.visible = visible[name] !== false;
+      o.position.copy(o.userData.base);
+      if (p) o.position.addScaledVector(N, p[3] * explode);
+      if (name === 'stand') o.position.z -= 60 * explode;
+    });
+  }
+
+  var spin = false;
+  function frame(view) {
+    if (!current) return;
+    var box = new THREE.Box3().setFromObject(root), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+    controls.target.copy(c);
+    // three.js coords: model -Y (front) becomes +Z
+    var dir = view === 'back' ? new THREE.Vector3(0.35, 0.3, -1) : view === 'side' ? new THREE.Vector3(1, 0.25, 0.1) : new THREE.Vector3(-0.45, 0.35, 1);
+    camera.position.copy(c).addScaledVector(dir.normalize(), size * 1.35);
+    camera.near = size / 100; camera.far = size * 20; camera.updateProjectionMatrix();
+    controls.update();
+  }
+
+  function show(style) {
+    document.getElementById('st-instrument').setAttribute('aria-pressed', style === 'instrument');
+    document.getElementById('st-puck').setAttribute('aria-pressed', style === 'puck');
+    document.getElementById('dims').textContent = DIMS[style];
+    document.getElementById('part-stand').parentElement.hidden = style !== 'instrument';
+    load(style).then(function (m) {
+      if (current) root.remove(current.group);
+      current = m; root.add(m.group); apply(); frame('front');
+    }).catch(function () { loadingEl.textContent = 'The 3D model could not be loaded.'; loadingEl.hidden = false; });
+  }
+
+  document.getElementById('st-instrument').addEventListener('click', function () { show('instrument'); });
+  document.getElementById('st-puck').addEventListener('click', function () { show('puck'); });
+  document.getElementById('explode').addEventListener('input', function (e) { explode = +e.target.value; apply(); });
+  document.querySelectorAll('[data-view]').forEach(function (b) { b.addEventListener('click', function () { frame(b.getAttribute('data-view')); }); });
+  document.getElementById('spin').addEventListener('click', function (e) { spin = !spin; e.target.setAttribute('aria-pressed', spin); controls.autoRotate = spin; });
+
+  function resize() {
+    var w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize); resize();
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  controls.autoRotateSpeed = 1.2;
+  (function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+  show('instrument');
+  if (!reduce) { /* start with a gentle explode so the parts read at first glance */
+    var e0 = 0.45; explode = e0; document.getElementById('explode').value = e0;
+  }
+})();
+</script>
+</html>

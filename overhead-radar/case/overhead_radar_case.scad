@@ -14,7 +14,7 @@
 // CHECK THEM AGAINST YOUR SCREEN BEFORE PRINTING.
 
 /* [Part] */
-part = "preview_instrument"; // [preview_instrument, preview_puck, instrument_bezel, instrument_box, instrument_stand, puck_bezel, puck_body, retaining_ring, antenna_grommet]
+part = "preview_instrument"; // [preview_instrument, preview_puck, instrument_bezel, instrument_box, instrument_stand, puck_bezel, puck_body, retaining_ring, puck_retaining_ring, antenna_grommet]
 
 /* [Display] */
 disp_d = 136;     // outer diameter of the glass / panel (mm)
@@ -158,33 +158,48 @@ module instrument_box() {
     }
 }
 
-// desk stand: holds the bezel+box assembly leaning back by `tilt`
-module instrument_stand() {
-    T = box_h + bezel_h;               // front-to-back thickness of the assembly
-    w = S * 0.72;
-    lip_h = 7; lip_w = 5; pt = 5; hgt = S * 0.55; base_t = 4;
-    y0 = T * cos(2 * tilt) / cos(tilt); // where the leaning back face meets the desk
-    translate([-w / 2, 0, 0]) rotate([90, 0, 90]) linear_extrude(w) difference() {
-        union() {
-            translate([-lip_w, -base_t]) square([y0 + pt + 30 + lip_w, base_t]);             // base
-            translate([-lip_w, 0]) square([lip_w, lip_h]);                                     // front lip
-            polygon([[y0, 0], [y0 + hgt * sin(tilt), hgt * cos(tilt)],
-                     [y0 + hgt * sin(tilt) + pt, hgt * cos(tilt)], [y0 + pt, 0]]);             // back rest
-        }
+// desk stand: an L-shaped cradle tilted back by `tilt`. The box's back face lies on the back rest and
+// its underside sits on the shelf, so the whole assembly leans back with the screen facing up-forward.
+T_unit = box_h + bezel_h;                    // front-to-back thickness of bezel + box
+stand_t = 4;                                 // cradle wall thickness
+stand_w = S * 0.72;
+stand_rest_h = S * 0.55;                     // height of the back rest, measured along the box's back
+stand_shelf = T_unit * 0.8;                  // how far the shelf reaches under the box
+up = [sin(tilt), cos(tilt)];                 // box "up" direction in the side profile (y back, z up)
+fwd = [-cos(tilt), sin(tilt)];               // from the back edge towards the front, along the underside
+stand_e = [0, 4 + stand_t * (cos(tilt) + sin(tilt))];  // where the box's back-bottom edge sits
+
+function v2(a, b, k = 1) = [a[0] + k * b[0], a[1] + k * b[1]];
+
+module stand_profile() {
+    Ep = stand_e;
+    out_down = [-up[0], -up[1]];             // below the shelf
+    out_back = [cos(tilt), -sin(tilt)];      // behind the back rest
+    P1 = v2(Ep, fwd, stand_shelf);
+    P2 = v2(P1, out_down, stand_t);
+    P3 = v2(v2(Ep, out_down, stand_t), out_back, stand_t);
+    P4 = v2(v2(Ep, up, stand_rest_h), out_back, stand_t);
+    P5 = v2(Ep, up, stand_rest_h);
+    polygon([Ep, P1, P2, P3, P4, P5]);
+    // foot: from the cradle down to the desk, reaching back for stability
+    hull() {
+        polygon([P2, P3, [P3[0] + 30, 0], [P2[0], 0]]);
     }
-    // side gussets
-    for (sx = [-1, 1]) translate([sx * (w / 2 - 3) - 3, 0, 0]) rotate([90, 0, 90]) linear_extrude(6)
-        polygon([[y0 + pt - E, 0], [y0 + pt + 30, 0], [y0 + hgt * 0.6 * sin(tilt) + pt - E, hgt * 0.6 * cos(tilt)]]);
 }
 
-module stand_with_slot() {
-    T = box_h + bezel_h;
-    y0 = T * cos(2 * tilt) / cos(tilt);
+module instrument_stand() {
     difference() {
-        instrument_stand();
-        // cable slot up the back rest
-        translate([-12, y0 - 5, -1]) cube([24, 20, 42]);
+        translate([-stand_w / 2, 0, 0]) rotate([90, 0, 90]) linear_extrude(stand_w) stand_profile();
+        // window in the back rest for the power and antenna leads (ports sit 22 mm above the box's bottom edge)
+        translate([0, 0, 0]) instrument_world() translate([11, -(S / 2 - 22), -box_h - 30]) cube([62, 34, 60], center = true);
     }
+}
+module stand_with_slot() { instrument_stand(); }
+
+// place the bezel+box assembly (bezel frame: back at z=0, front at z=bezel_h) on the stand
+module instrument_world() {
+    translate([0, stand_e[0], stand_e[1]]) rotate([-tilt, 0, 0]) translate([0, -T_unit, 0])
+        translate([0, 0, S / 2]) rotate([90, 0, 0]) translate([0, 0, -bezel_h]) children();
 }
 
 // ---------- puck style ----------
@@ -226,10 +241,18 @@ module puck_body() {
             }
         }
         for (a = [0, 120, 240]) rotate(a + 90) translate([R - 3, 0, -depth + 4]) cylinder(d = screw_pilot, h = depth, $fn = 24);
-        translate([0, -(R - 34), -box_h - 1]) cylinder(d = power_hole_d, h = wall + 2);
-        if (antenna_port) translate([32, -(R - 34), -box_h - 1]) cylinder(d = antenna_port_d, h = wall + 2, $fn = 48);
+        translate([0, -(R - 44), -box_h - 1]) cylinder(d = power_hole_d, h = wall + 2);
+        if (antenna_port) translate([32, -(R - 44), -box_h - 1]) cylinder(d = antenna_port_d, h = wall + 2, $fn = 48);
         vent_slots(-box_h - 1, R - 42);
         desk_cut();
+    }
+}
+
+// the puck's ring is trimmed so it clears the closed floor of the flat underside
+module puck_retaining_ring() {
+    difference() {
+        translate([0, 0, -ring_t]) retaining_ring();
+        rotate([-a_lean, 0, 0]) translate([-500, -500, z_cut + wall + 0.6 - 1000]) cube(1000);
     }
 }
 
@@ -242,8 +265,7 @@ module display_dummy() {
 module preview_instrument() {
     T = box_h + bezel_h;
     color("#c9ced6") stand_with_slot();
-    // assembly: front-bottom edge at the stand origin, leaning back by `tilt`
-    translate([0, 0, 0]) rotate([-tilt, 0, 0]) translate([0, 0, S / 2]) rotate([90, 0, 0]) translate([0, 0, -bezel_h]) {
+    instrument_world() {
         color("#2b2f36") instrument_bezel();
         translate([0, 0, pad_t]) display_dummy();
         color("#3a3f47") instrument_box();
@@ -263,8 +285,9 @@ if (part == "preview_instrument") preview_instrument();
 else if (part == "preview_puck") preview_puck();
 else if (part == "instrument_bezel") translate([0, 0, bezel_h]) rotate([180, 0, 0]) instrument_bezel();
 else if (part == "instrument_box") translate([0, 0, box_h]) instrument_box();
-else if (part == "instrument_stand") translate([0, 0, 4]) stand_with_slot();
+else if (part == "instrument_stand") stand_with_slot();
 else if (part == "puck_bezel") translate([0, 0, bezel_h]) rotate([180, 0, 0]) puck_bezel();
 else if (part == "puck_body") translate([0, 0, box_h]) puck_body();
 else if (part == "retaining_ring") retaining_ring();
 else if (part == "antenna_grommet") antenna_grommet();
+else if (part == "puck_retaining_ring") translate([0, 0, ring_t]) puck_retaining_ring();

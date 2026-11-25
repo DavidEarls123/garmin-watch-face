@@ -20,9 +20,11 @@
 
 The back of the box (and the puck) has a **13 mm antenna port** beside the 16 mm power hole, closed by the printed `antenna_grommet`:
 
-1. From inside the case, push the antenna's SMA plug out through the port. Connect it to the dongle inside.
+1. From outside, push the antenna's SMA plug in through the port and screw it onto the dongle.
 2. Click the cable sideways into the grommet's slit. It's sized for a 3.2 mm lead; change `coax_d` if yours differs.
 3. Press the grommet into the port from outside until the barb snaps behind the wall. It holds the cable and closes the hole.
+
+Step-by-step assembly is in [ASSEMBLY.md](ASSEMBLY.md). There's also a 3D viewer in `case/viewer/index.html`; open it through `python3 -m http.server` in that folder.
 
 ## Shopping list (Amazon.ie, checked November 2026)
 
