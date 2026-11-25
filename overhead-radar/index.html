@@ -40,11 +40,51 @@
   .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .err { color: #ff8a8a; font-size: .85em; min-height: 1.2em; margin: -4px 0; }
   .fine { color: #4b6675; font-size: .75em; margin: 0; }
+  .ctl { position: fixed; width: 13vmin; height: 13vmin; max-width: 64px; max-height: 64px; min-width: 40px; min-height: 40px;
+         transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid #2c5568; background: rgba(3,9,13,.72);
+         color: #a9c4d2; font: 600 clamp(16px, 5vmin, 26px)/1 ui-monospace, 'DejaVu Sans Mono', monospace; display: grid;
+         place-items: center; cursor: pointer; padding: 0; opacity: .7; touch-action: manipulation; }
+  .ctl:hover, .ctl:active { opacity: 1; border-color: #6aa7c4; }
+  .ctl svg { width: 52%; height: 52%; }
+  .check { display: flex !important; align-items: center; gap: 6px; }
+  .check input { width: auto; }
+  .place-list { display: grid; gap: 6px; }
+  .place { display: flex; gap: 6px; }
+  .place > button:first-child { flex: 1; text-align: left; border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
+  .place small { color: var(--muted); font-size: .8em; }
+  .place [aria-current="true"] { border-color: #ffb547; }
+  .place .del { border-radius: 10px; padding: 0 10px; color: var(--muted); }
+  /* flight detail: a circle that matches the round screen */
+  .detail-wrap { background: rgba(0,0,0,.3); }
+  .detail { position: relative; width: 94vmin; height: 94vmin; border-radius: 50%; box-sizing: border-box; padding: 9vmin 13vmin 8vmin;
+            background: radial-gradient(circle at 50% 40%, rgba(12,34,46,.97), rgba(3,9,13,.97)); border: 2px solid #2c5568;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.1vmin; text-align: center;
+            color: var(--text); font-family: ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace; overflow: hidden; }
+  .detail .close { position: absolute; top: 3.5vmin; left: 50%; transform: translateX(-50%); background: none; border: 0;
+                   color: var(--muted); font-size: 6vmin; line-height: 1; cursor: pointer; padding: 1vmin 3vmin; }
+  .photo { width: 58vmin; height: 25vmin; border-radius: 2.2vmin; overflow: hidden; background: #06121a; display: grid; place-items: center;
+           border: 1px solid #1d3b4a; flex: none; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo svg { width: 80%; height: 92%; }
+  .d-call { font-size: 6.2vmin; font-weight: 700; letter-spacing: .04em; line-height: 1.05; }
+  .d-op { font-size: 2.5vmin; color: var(--muted); }
+  .d-route { font-size: 3.3vmin; line-height: 1.2; }
+  .d-route b { font-size: 4.2vmin; }
+  .d-route small { display: block; font-size: 2.1vmin; color: var(--muted); }
+  .d-type { font-size: 2.4vmin; color: #9fb6c3; }
+  .d-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8vmin 3vmin; margin-top: .6vmin; }
+  .d-stats div { display: grid; }
+  .d-stats span { font-size: 1.8vmin; color: var(--muted); letter-spacing: .08em; }
+  .d-stats b { font-size: 3.1vmin; }
+  .d-credit { font-size: 1.6vmin; color: #4b6675; max-width: 60vmin; }
 </style>
 </head>
 <body>
 <canvas id="scope" aria-label="Radar showing aircraft overhead"></canvas>
-<button class="gear" id="gear" type="button" aria-label="Settings" title="Settings (S)">⚙</button>
+<button class="ctl" id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out (-)">−</button>
+<button class="ctl" id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in (+)">+</button>
+<button class="ctl" id="places-btn" type="button" aria-label="Places" title="Places (L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button>
+<button class="ctl" id="gear" type="button" aria-label="Settings" title="Settings (S)">⚙</button>
 <div class="panel" id="panel" hidden>
   <form class="sheet" id="sheet" novalidate>
     <h2>Centre point</h2>
@@ -59,13 +99,36 @@
       <button type="button" id="c-pick">Pick on the map</button>
       <button type="button" id="c-here">Use my location</button>
     </div>
+    <label class="check" for="c-keep"><input type="checkbox" id="c-keep" checked> Add to my places list</label>
     <div class="actions">
       <button type="button" id="c-reset">Reset</button>
       <button type="button" id="c-cancel">Cancel</button>
       <button type="submit" class="primary">Save</button>
     </div>
-    <p class="fine">Tip: paste “53.27, -9.05” straight into Latitude. Tap the radar to change range. Map data © OpenStreetMap contributors (ODbL).</p>
+    <p class="fine">Tip: paste “53.27, -9.05” straight into Latitude. Tap a plane to see its details. Map data © OpenStreetMap contributors (ODbL).</p>
   </form>
+</div>
+<div class="panel" id="places" hidden>
+  <div class="sheet" role="dialog" aria-label="Places">
+    <h2>Places</h2>
+    <div class="place-list" id="place-list"></div>
+    <div class="actions">
+      <button type="button" id="p-new">Add a place…</button>
+      <button type="button" id="p-close">Close</button>
+    </div>
+  </div>
+</div>
+<div class="panel detail-wrap" id="detail" hidden>
+  <div class="detail" role="dialog" aria-label="Flight details">
+    <button class="close" id="d-close" type="button" aria-label="Close">×</button>
+    <div class="photo" id="d-photo"></div>
+    <div class="d-call" id="d-call"></div>
+    <div class="d-op" id="d-op"></div>
+    <div class="d-route" id="d-route"></div>
+    <div class="d-type" id="d-type"></div>
+    <div class="d-stats" id="d-stats"></div>
+    <div class="d-credit" id="d-credit"></div>
+  </div>
 </div>
 <script src="geo.js"></script>
 <script>
@@ -80,8 +143,8 @@
     name: 'GALWAY',
     lat: 53.2707,
     lon: -9.0568,
-    ranges: [10, 20, 40, 80],
-    rangeIdx: 2,
+    ranges: [5, 10, 20, 40, 80],
+    rangeIdx: 3,
     pollMs: 5000,
     demo: params.get('demo') === '1'
   };
@@ -171,6 +234,7 @@
       p.track = a.track;
       p.vr = a.vr || 0;
       p.squawk = a.squawk || '';
+      p.cat = a.category || p.cat || '';
       p.x = xy[0]; p.y = xy[1]; p.fixT = fixT;
       p.updated = nowMs;
     });
@@ -260,7 +324,7 @@
     var now = Date.now();
     demo = seed.map(function (s, i) {
       return { hex: 'd' + i, flight: s[0], type: s[1], reg: s[2], alt: s[3], gs: s[4], track: s[5],
-               x: s[6], y: s[7], vr: s[8], turn: s[9], squawk: '7000', t: now };
+               x: s[6], y: s[7], vr: s[8], turn: s[9], squawk: s[10] || '7000', t: now };
     });
     demoTick();
     setInterval(demoTick, 1000);
@@ -279,7 +343,7 @@
         var p = planes.get(a.hex); if (p) p.trail = [];
       }
       var ll = fromXY(a.x, a.y);
-      return { hex: a.hex, flight: a.flight, type: a.type, reg: a.reg, lat: ll[0], lon: ll[1], alt: Math.round(a.alt),
+      return { hex: a.hex, flight: a.flight, type: a.type, reg: a.reg, lat: ll[0], lon: ll[1], alt: Math.round(a.alt), category: '',
                gs: a.gs, track: a.track, vr: a.vr, squawk: a.squawk, seen: 0 };
     });
     ingest(out, now);
@@ -429,7 +493,9 @@
     list.sort(function (a, b) { return (a.p.alt || 0) - (b.p.alt || 0); });
     var nearest = null;
     list.forEach(function (o) { if (!o.p.ground && (!nearest || o.d < nearest.d)) nearest = o; });
+    nearestHex = nearest ? nearest.p.hex : null;
 
+    hitTargets = [];
     var boxes = [[cx - R * 0.36, cy - R * 0.78, cx + R * 0.36, cy - R * 0.46]]; // clock block
     if (nearest) boxes.push([cx - R * 0.42, cy + R * 0.64, cx + R * 0.42, cy + R * 0.87]); // nearest card
     function overlaps(b) {
@@ -449,6 +515,11 @@
         }
       }
       var px = cx + o.x * k, py = cy - o.y * k;
+      hitTargets.push({ hex: p.hex, x: px / dpr, y: py / dpr });
+      if (p.hex === selectedHex) {
+        ctx.strokeStyle = '#ffb547'; ctx.lineWidth = Math.max(2, u * 0.45);
+        ctx.beginPath(); ctx.arc(px, py, u * 4, 0, Math.PI * 2); ctx.stroke();
+      }
       if (o === nearest || emerg) {
         ctx.strokeStyle = emerg ? (Math.floor(now / 400) % 2 ? '#ff3b3b' : '#ffffff') : 'rgba(255,255,255,.75)';
         ctx.lineWidth = Math.max(1, u * 0.3);
@@ -561,9 +632,15 @@
     CFG.rangeIdx = (i + CFG.ranges.length) % CFG.ranges.length;
     try { localStorage.setItem('overhead-radar-range', String(CFG.rangeIdx)); } catch (e) { /* ignore */ }
   }
-  var picking = false;
+  var picking = false, hitTargets = [], selectedHex = null, nearestHex = null;
   canvas.addEventListener('click', function (e) {
-    if (!picking) { setRange(CFG.rangeIdx + 1); return; }
+    if (!picking) {
+      // tap a plane to open its details
+      var rc = canvas.getBoundingClientRect(), tx = e.clientX - rc.left, ty = e.clientY - rc.top, best = null, bestD = Math.max(22, S * 0.06);
+      hitTargets.forEach(function (h) { var d = Math.hypot(h.x - tx, h.y - ty); if (d < bestD) { bestD = d; best = h; } });
+      if (best) openDetail(best.hex); else selectedHex = null;
+      return;
+    }
     // convert the tap to lat/lon and reopen the settings with it filled in
     var rect = canvas.getBoundingClientRect(), R = rect.width / 2 * 0.94, k = R / CFG.ranges[CFG.rangeIdx];
     var x = (e.clientX - rect.left - rect.width / 2) / k, y = -(e.clientY - rect.top - rect.height / 2) / k;
@@ -573,8 +650,12 @@
   });
   document.addEventListener('keydown', function (e) {
     if (!panel.hidden) { if (e.key === 'Escape') closeSettings(); return; }
-    if (e.key === 'Escape') picking = false;
+    if (!placesPanel.hidden) { if (e.key === 'Escape' || e.key === 'l' || e.key === 'L') closePlaces(); return; }
+    if (!detail.hidden) { if (e.key === 'Escape' || e.key === 'Enter') closeDetail(); return; }
+    if (e.key === 'Escape') { picking = false; selectedHex = null; }
     if (e.key === 's' || e.key === 'S') { e.preventDefault(); openSettings(); }
+    if (e.key === 'l' || e.key === 'L') { e.preventDefault(); openPlaces(); }
+    if (e.key === 'Enter' && nearestHex) openDetail(nearestHex);
     if (e.key === '+' || e.key === '=' || e.key === 'ArrowUp') setRange(CFG.rangeIdx - 1);
     if (e.key === '-' || e.key === 'ArrowDown') setRange(CFG.rangeIdx + 1);
   });
@@ -596,6 +677,203 @@
     b.addEventListener('click', function () { fill(p); });
     document.getElementById('presets').appendChild(b);
   });
+
+  // ---------- places list (presets + places saved on this screen) ----------
+  var PLACES_KEY = 'overhead-radar-places';
+  var placesPanel = document.getElementById('places'), placeList = document.getElementById('place-list');
+  function customPlaces() {
+    try { var a = JSON.parse(localStorage.getItem(PLACES_KEY) || '[]'); return Array.isArray(a) ? a.filter(validCentre) : []; }
+    catch (e) { return []; }
+  }
+  function saveCustomPlaces(a) { try { localStorage.setItem(PLACES_KEY, JSON.stringify(a)); } catch (e) { /* ignore */ } }
+  function addCustomPlace(c) {
+    var a = customPlaces().filter(function (p) { return p.name.toLowerCase() !== c.name.toLowerCase(); });
+    a.push({ name: c.name, lat: c.lat, lon: c.lon });
+    saveCustomPlaces(a);
+  }
+  function renderPlaces() {
+    placeList.innerHTML = '';
+    var custom = customPlaces();
+    PRESETS.map(function (p) { return { p: p, custom: false }; })
+      .concat(custom.map(function (p) { return { p: p, custom: true }; }))
+      .forEach(function (item) {
+        var p = item.p, row = document.createElement('div'), b = document.createElement('button');
+        row.className = 'place';
+        b.type = 'button';
+        var here = Math.abs(p.lat - CFG.lat) < 1e-4 && Math.abs(p.lon - CFG.lon) < 1e-4;
+        b.setAttribute('aria-current', here ? 'true' : 'false');
+        b.innerHTML = '<span></span><small></small>';
+        b.firstChild.textContent = p.name;
+        b.lastChild.textContent = (+p.lat).toFixed(3) + ', ' + (+p.lon).toFixed(3) + (here ? '  · showing now' : '');
+        b.addEventListener('click', function () { setCentre(+p.lat, +p.lon, p.name, true); closePlaces(); });
+        row.appendChild(b);
+        if (item.custom) {
+          var del = document.createElement('button');
+          del.type = 'button'; del.className = 'del'; del.textContent = '×';
+          del.setAttribute('aria-label', 'Remove ' + p.name);
+          del.addEventListener('click', function () {
+            saveCustomPlaces(customPlaces().filter(function (q) { return q.name !== p.name; }));
+            renderPlaces();
+          });
+          row.appendChild(del);
+        }
+        placeList.appendChild(row);
+      });
+  }
+  function openPlaces() { renderPlaces(); placesPanel.hidden = false; var c = placeList.querySelector('[aria-current="true"]') || placeList.querySelector('button'); if (c) c.focus(); }
+  function closePlaces() { placesPanel.hidden = true; }
+  document.getElementById('places-btn').addEventListener('click', openPlaces);
+  document.getElementById('p-close').addEventListener('click', closePlaces);
+  document.getElementById('p-new').addEventListener('click', function () { closePlaces(); openSettings({ name: '', lat: CFG.lat, lon: CFG.lon }); fName.focus(); });
+  placesPanel.addEventListener('click', function (e) { if (e.target === placesPanel) closePlaces(); });
+  document.getElementById('zoom-in').addEventListener('click', function () { setRange(Math.max(0, CFG.rangeIdx - 1)); });
+  document.getElementById('zoom-out').addEventListener('click', function () { setRange(Math.min(CFG.ranges.length - 1, CFG.rangeIdx + 1)); });
+
+  // ---------- flight details ----------
+  var detail = document.getElementById('detail'), infoCache = new Map(), detailTimer = null, detailIdle = null;
+  var dEl = {}; ['photo', 'call', 'op', 'route', 'type', 'stats', 'credit'].forEach(function (k) { dEl[k] = document.getElementById('d-' + k); });
+
+  // Made-up details for the demo traffic only.
+  var DEMO_INFO = {
+    DAL41: ['Delta Air Lines', 'EIDW', 'DUB', 'Dublin', 'KATL', 'ATL', 'Atlanta', 'Airbus', 'A330-300'],
+    UAL23: ['United Airlines', 'EIDW', 'DUB', 'Dublin', 'KEWR', 'EWR', 'Newark', 'Boeing', '787-9 Dreamliner'],
+    AAL105: ['American Airlines', 'EGLL', 'LHR', 'London Heathrow', 'KJFK', 'JFK', 'New York JFK', 'Boeing', '777-300ER'],
+    BAW117: ['British Airways', 'EGLL', 'LHR', 'London Heathrow', 'KJFK', 'JFK', 'New York JFK', 'Airbus', 'A350-1000'],
+    ACA849: ['Air Canada', 'EGLL', 'LHR', 'London Heathrow', 'CYYZ', 'YYZ', 'Toronto', 'Boeing', '787-8 Dreamliner'],
+    EIN105: ['Aer Lingus', 'EIDW', 'DUB', 'Dublin', 'KJFK', 'JFK', 'New York JFK', 'Airbus', 'A321neo'],
+    RYR4KT: ['Ryanair', 'LEMD', 'MAD', 'Madrid', 'EIKN', 'NOC', 'Ireland West (Knock)', 'Boeing', '737 MAX 8'],
+    EAI32D: ['Emerald Airlines', 'EINN', 'SNN', 'Shannon', 'EGBB', 'BHX', 'Birmingham', 'ATR', '72-600'],
+    EIBCF: ['Private', '', '', '', '', '', '', 'Cessna', '172 Skyhawk']
+  };
+  function demoInfo(p) {
+    var d = DEMO_INFO[p.flight];
+    if (!d) return {};
+    return { demo: true, aircraft: { owner: d[0], manufacturer: d[7], type: d[8], registration: p.reg, type_code: p.type },
+             route: d[1] ? { origin: { icao: d[1], iata: d[2], name: d[3] }, destination: { icao: d[4], iata: d[5], name: d[6] } } : null };
+  }
+
+  function loadInfo(p) {
+    if (infoCache.has(p.hex)) return Promise.resolve(infoCache.get(p.hex));
+    if (status.source === 'DEMO') { var di = demoInfo(p); infoCache.set(p.hex, di); return Promise.resolve(di); }
+    return fetchJSON('api/info?hex=' + encodeURIComponent(p.hex) + '&callsign=' + encodeURIComponent(p.flight || ''))
+      .then(function (j) { infoCache.set(p.hex, j); return j; })
+      .catch(function () { return {}; });
+  }
+
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function openDetail(hex) {
+    var p = planes.get(hex);
+    if (!p) return;
+    selectedHex = hex;
+    dEl.photo.innerHTML = silhouetteSVG(typeCategory(p.type, p.cat));
+    dEl.call.textContent = p.flight;
+    dEl.op.textContent = ' ';
+    dEl.route.innerHTML = '<small>Looking up flight…</small>';
+    dEl.type.textContent = [p.type, p.reg].filter(Boolean).join(' · ');
+    dEl.credit.textContent = '';
+    updateStats();
+    detail.hidden = false;
+    clearInterval(detailTimer); detailTimer = setInterval(updateStats, 1000);
+    clearTimeout(detailIdle); detailIdle = setTimeout(closeDetail, 60000); // back to the radar after a minute
+    loadInfo(p).then(function (info) {
+      if (selectedHex !== hex) return;
+      var ac = info.aircraft || {}, rt = info.route, ph = info.photo;
+      dEl.op.textContent = ac.owner || '';
+      if (rt && rt.origin && rt.destination) {
+        dEl.route.innerHTML = '<b>' + esc(rt.origin.iata || rt.origin.icao) + '</b> → <b>' + esc(rt.destination.iata || rt.destination.icao) + '</b>' +
+          '<small>' + esc(rt.origin.name || rt.origin.icao) + ' to ' + esc(rt.destination.name || rt.destination.icao) + '</small>';
+      } else {
+        dEl.route.innerHTML = '<small>Route not known</small>';
+      }
+      var typeName = [ac.manufacturer, ac.type].filter(Boolean).join(' ');
+      dEl.type.textContent = [typeName || p.type, ac.registration || p.reg].filter(Boolean).join(' · ') + (ac.type_code && typeName ? ' (' + ac.type_code + ')' : '');
+      if (ac.type_code && !p.type) dEl.photo.innerHTML = silhouetteSVG(typeCategory(ac.type_code, p.cat));
+      var credits = [];
+      if (ph && ph.src) {
+        var img = new Image();
+        img.alt = 'Photo of ' + (ac.registration || p.flight);
+        img.onload = function () { if (selectedHex === hex) { dEl.photo.innerHTML = ''; dEl.photo.appendChild(img); } };
+        img.src = ph.src;
+        credits.push('Photo © ' + (ph.photographer || 'unknown') + ' · planespotters.net');
+      }
+      if (info.demo) credits.push('Demo data');
+      else if (rt) credits.push('Route: hexdb.io, may be out of date');
+      dEl.credit.textContent = credits.join('  ·  ');
+    });
+  }
+  function closeDetail() { detail.hidden = true; selectedHex = null; clearInterval(detailTimer); clearTimeout(detailIdle); }
+  function updateStats() {
+    var p = planes.get(selectedHex);
+    if (!p) { dEl.stats.innerHTML = '<div style="grid-column:1/-1"><b>Signal lost</b></div>'; return; }
+    var pos = posNow(p, Date.now()), d = Math.hypot(pos[0], pos[1]);
+    var cells = [['ALT', altText(p) + vrArrow(p.vr)], ['SPEED', Math.round(p.gs) + ' kt'], ['TRACK', p.track != null ? String(Math.round(p.track)).padStart(3, '0') + '°' : '—'],
+                 ['V/S', p.vr ? (p.vr > 0 ? '+' : '') + Math.round(p.vr / 50) * 50 + ' fpm' : 'level'], ['DIST', d.toFixed(1) + ' nm ' + bearingName(pos[0], pos[1])], ['SQUAWK', p.squawk || '—']];
+    dEl.stats.innerHTML = cells.map(function (c) {
+      var hot = c[0] === 'SQUAWK' && isEmergency(p.squawk) ? ' style="color:#ff6b6b"' : '';
+      return '<div><span>' + c[0] + '</span><b' + hot + '>' + esc(c[1]) + '</b></div>';
+    }).join('');
+  }
+  document.getElementById('d-close').addEventListener('click', closeDetail);
+  detail.addEventListener('click', function (e) { if (e.target === detail) closeDetail(); });
+
+  // ---------- aircraft type outlines (top view, nose up) ----------
+  function typeCategory(t, cat) {
+    t = (t || '').toUpperCase();
+    if (/^(EC\d\d|H1[0-9]{2}|H160|AS3\d\w?|AS\d\d|AW1\d\d|A1[0-9]{2}|B06|B407|B412|B429|R22|R44|R66|MI\d+|NH90|S76|S92|EH10|LYNX|EXPL|BK17)$/.test(t)) return 'heli';
+    if (/^(A38\d|B74\w|A34\d|IL96|A124|B52)$/.test(t)) return 'quad';
+    if (/^(A306|A30B|A310|A33\d|A35\w|B76\d|B77\w|B78\w|MD11|DC10|C17|K35R)$/.test(t)) return 'wide';
+    if (/^(CRJ\d|CRJX|E135|E145|E35L|F70|F100|MD8\d|MD90|B712|DC9\w*)$/.test(t)) return 'rearjet';
+    if (/^(A31[89]|A32\d|A19N|A20N|A21N|B73\w|B3[789]M|B3XM|B75\d|BCS\d|C919|E1[7-9]\d|E75\w|E29\d|E2\d\d|SU95|A148)$/.test(t)) return 'narrow';
+    if (/^(AT[4-7]\w|ATP|DH8\w|DHC\d|SF34|JS\d\d|D328|B190|BE20|BE30|BE9L|BE99|PC12|C208|AN2\d|L410|F50|SB20|C130|A400|SW4)$/.test(t)) return 'turboprop';
+    if (/^(C25\w|C5\d\w|C68A|C700|C750|GLF\d|GL\d\w|GLEX|CL[36]\d|FA\d\w|F2TH|F900|LJ\d\d|E5[05]P|E545|E550|PC24|H25\w|HDJT|PRM1|BE40|SF50|EA50)$/.test(t)) return 'biz';
+    if (/^(C1\d\d|C2\d\d|PA\d\w|P28\w|SR2\d|DA\d\w|BE\d\d|M20\w|RV\d+|TB\d+|DR40|AA5|G115|C42|EV97|CTSW|P92|DV20|TECN|AT3T)$/.test(t)) return 'light';
+    return { A1: 'light', A2: 'biz', A3: 'narrow', A4: 'narrow', A5: 'wide', A7: 'heli' }[cat] || 'narrow';
+  }
+  var SHAPES = {
+    //        span  len  sweep rootC tipC  wingY tail engines(span fractions)  engine  fuselage-width
+    quad:     [0.96, 1.0, 34, 0.25, 0.07, 0.48, 0.34, [0.36, 0.64], 'jet', 0.075],
+    wide:     [0.94, 1.0, 32, 0.24, 0.07, 0.48, 0.34, [0.34], 'jet', 0.075],
+    narrow:   [0.88, 0.94, 26, 0.2, 0.06, 0.5, 0.32, [0.34], 'jet', 0.06],
+    rearjet:  [0.76, 0.9, 24, 0.18, 0.06, 0.5, 0.3, [], 'rear', 0.055],
+    turboprop:[0.98, 0.78, 0, 0.12, 0.08, 0.42, 0.3, [0.3], 'prop', 0.055],
+    biz:      [0.7, 0.78, 26, 0.17, 0.06, 0.55, 0.3, [], 'rear', 0.05],
+    light:    [1.0, 0.68, 0, 0.13, 0.11, 0.38, 0.3, [], 'nose', 0.06]
+  };
+  var CAT_NAMES = { quad: 'Four-engine widebody', wide: 'Twin-engine widebody', narrow: 'Narrowbody jet', rearjet: 'Regional jet',
+                    turboprop: 'Turboprop', biz: 'Business jet', light: 'Light aircraft', heli: 'Helicopter' };
+  function silhouetteSVG(cat) {
+    // drawn pointing right inside a 200 x 90 box
+    var fill = '#3d7f96', line = '#6aa7c4', body = '';
+    if (cat === 'heli') {
+      body = '<ellipse cx="88" cy="45" rx="26" ry="14" fill="' + fill + '"/><rect x="20" y="42" width="60" height="6" rx="3" fill="' + fill + '"/>' +
+             '<rect x="16" y="34" width="6" height="22" rx="2" fill="' + fill + '"/><circle cx="88" cy="45" r="40" fill="none" stroke="' + line + '" stroke-width="2" stroke-dasharray="4 5"/>' +
+             '<line x1="48" y1="45" x2="128" y2="45" stroke="' + line + '" stroke-width="3"/><line x1="88" y1="5" x2="88" y2="85" stroke="' + line + '" stroke-width="3"/>';
+    } else {
+      var sh = SHAPES[cat] || SHAPES.narrow, L = 180 * sh[1], span = 86 * sh[0], half = span / 2, cyy = 45;
+      var x0 = 100 + L / 2, x1 = 100 - L / 2; // nose x0, tail x1
+      var fw = 200 * sh[9] / 2;
+      var wx = x0 - L * sh[5], rc = L * sh[3], tc = L * sh[4], sw = Math.tan(sh[2] * D2R) * half;
+      var wing = function (s) { return [[wx, cyy + s * fw], [wx - sw, cyy + s * half], [wx - sw - tc, cyy + s * half], [wx - rc, cyy + s * fw]]; };
+      var th = half * sh[6], tsw = Math.tan((sh[2] + 6) * D2R) * th, tx = x1 + L * 0.12;
+      var tail = function (s) { return [[tx, cyy + s * fw * 0.7], [tx - tsw, cyy + s * th], [tx - tsw - L * 0.05, cyy + s * th], [tx - L * 0.1, cyy + s * fw * 0.5]]; };
+      var poly = function (pts) { return '<polygon points="' + pts.map(function (q) { return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' ') + '" fill="' + fill + '"/>'; };
+      body = poly(wing(1)) + poly(wing(-1)) + poly(tail(1)) + poly(tail(-1)) +
+             '<rect x="' + x1.toFixed(1) + '" y="' + (cyy - fw).toFixed(1) + '" width="' + L.toFixed(1) + '" height="' + (2 * fw).toFixed(1) + '" rx="' + fw.toFixed(1) + '" fill="' + fill + '"/>';
+      sh[7].forEach(function (f) {
+        [1, -1].forEach(function (s) {
+          var ey = cyy + s * half * f, ex = wx - sw * f + 6;
+          if (sh[8] === 'jet') body += '<rect x="' + (ex - 4).toFixed(1) + '" y="' + (ey - 3.2).toFixed(1) + '" width="16" height="6.4" rx="3" fill="' + line + '"/>';
+          else body += '<rect x="' + (ex - 2).toFixed(1) + '" y="' + (ey - 2.5).toFixed(1) + '" width="12" height="5" rx="2" fill="' + line + '"/>' +
+                       '<line x1="' + (ex + 10).toFixed(1) + '" y1="' + (ey - 9).toFixed(1) + '" x2="' + (ex + 10).toFixed(1) + '" y2="' + (ey + 9).toFixed(1) + '" stroke="' + line + '" stroke-width="2"/>';
+        });
+      });
+      if (sh[8] === 'rear') [1, -1].forEach(function (s) { body += '<rect x="' + (x1 + L * 0.16).toFixed(1) + '" y="' + (cyy + s * (fw + 3.5) - 3).toFixed(1) + '" width="15" height="6" rx="3" fill="' + line + '"/>'; });
+      if (sh[8] === 'nose') body += '<line x1="' + (x0 + 2).toFixed(1) + '" y1="' + (cyy - 11) + '" x2="' + (x0 + 2).toFixed(1) + '" y2="' + (cyy + 11) + '" stroke="' + line + '" stroke-width="2.5"/>';
+    }
+    return '<svg viewBox="0 0 200 90" role="img" aria-label="' + CAT_NAMES[cat] + ' outline">' + body +
+           '<text x="196" y="86" text-anchor="end" font-size="8" fill="#4b6675" font-family="monospace">' + CAT_NAMES[cat].toUpperCase() + '</text></svg>';
+  }
   fLat.addEventListener('input', function () {
     // accept "53.27, -9.05" pasted into one box
     var m = fLat.value.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
@@ -625,18 +903,23 @@
       fErr.textContent = 'Enter latitude between -85 and 85 and longitude between -180 and 180, e.g. 53.27 and -9.05.';
       return;
     }
-    setCentre(lat, lon, fName.value.trim() || 'Custom', true);
+    var nm = fName.value.trim() || 'Custom';
+    setCentre(lat, lon, nm, true);
+    if (document.getElementById('c-keep').checked && !PRESETS.some(function (p) { return p.name.toLowerCase() === nm.toLowerCase(); })) addCustomPlace({ name: nm, lat: lat, lon: lon });
     closeSettings();
   });
 
-  function placeGear() {
-    // bottom-left, just inside the scope edge
-    var r = S / 2 * 0.94 * 0.8, a = 220 * D2R;
-    gear.style.left = (window.innerWidth / 2 + Math.sin(a) * r) + 'px';
-    gear.style.top = (window.innerHeight / 2 - Math.cos(a) * r) + 'px';
+  // controls sit just inside the scope edge: zoom at 4 and 8 o'clock, places and settings either side of the nearest card
+  var CONTROLS = [['zoom-out', 245, 0.8], ['zoom-in', 115, 0.8], ['places-btn', 224, 0.83], ['gear', 136, 0.83]];
+  function placeControls() {
+    CONTROLS.forEach(function (c) {
+      var el = document.getElementById(c[0]), r = S / 2 * 0.94 * c[2], a = c[1] * D2R;
+      el.style.left = (window.innerWidth / 2 + Math.sin(a) * r) + 'px';
+      el.style.top = (window.innerHeight / 2 - Math.cos(a) * r) + 'px';
+    });
   }
-  window.addEventListener('resize', placeGear);
-  placeGear();
+  window.addEventListener('resize', placeControls);
+  placeControls();
 
   // ---------- start ----------
   var serverCentre = null;

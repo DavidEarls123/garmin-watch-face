@@ -10,10 +10,14 @@ Sources:
   airplaneslive https://api.airplanes.live    (free, no key, ~1 request/second limit)
   readsb        your own receiver (RTL-SDR dongle + readsb/dump1090/tar1090)
 
+Tapping an aircraft asks /api/info, which looks up the owner and type and the route
+(hexdb.io), plus a photo of that airframe (planespotters.net, credited on screen).
+
 Only the Python standard library is used.
 """
 
 import argparse
+import concurrent.futures
 import functools
 import json
 import threading
@@ -53,6 +57,7 @@ def normalise(ac):
         "track": ac.get("track", ac.get("true_heading")),
         "vr": ac.get("baro_rate", ac.get("geom_rate")) or 0,
         "squawk": ac.get("squawk") or "",
+        "category": ac.get("category") or "",
         "seen": ac.get("seen_pos", ac.get("seen", 0)) or 0,
     }
 
@@ -95,7 +100,83 @@ class Feed:
             return self.cached
 
 
+class Lookup:
+    """Details for a tapped aircraft: owner/type (hexdb.io), route (hexdb.io) and a photo (planespotters.net).
+
+    Every source is optional: if one is down or has nothing, that part is simply left out.
+    Results are cached so tapping the same aircraft again costs nothing.
+    """
+
+    TTL = 6 * 3600
+
+    def __init__(self):
+        self.cache = {}
+        self.lock = threading.Lock()
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=6)
+
+    def _get_json(self, url):
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            return json.load(r)
+
+    def _cached(self, key, fn, ttl=TTL):
+        with self.lock:
+            hit = self.cache.get(key)
+            if hit and time.time() - hit[0] < ttl:
+                return hit[1]
+        try:
+            val = fn()
+        except Exception:
+            val = None
+        with self.lock:
+            self.cache[key] = (time.time(), val)
+        return val
+
+    def aircraft(self, hex_):
+        def fetch():
+            d = self._get_json(f"https://hexdb.io/api/v1/aircraft/{hex_}")
+            if not isinstance(d, dict) or d.get("status") == "404":
+                return None
+            return {"registration": d.get("Registration") or "", "type_code": d.get("ICAOTypeCode") or "",
+                    "manufacturer": d.get("Manufacturer") or "", "type": d.get("Type") or "",
+                    "owner": d.get("RegisteredOwners") or ""}
+        return self._cached(("ac", hex_), fetch)
+
+    def airport(self, icao):
+        def fetch():
+            d = self._get_json(f"https://hexdb.io/api/v1/airport/icao/{icao}")
+            return {"icao": icao, "iata": d.get("iata") or "", "name": d.get("airport") or icao}
+        return self._cached(("apt", icao), fetch, ttl=30 * 24 * 3600) or {"icao": icao, "iata": "", "name": icao}
+
+    def route(self, callsign):
+        def fetch():
+            d = self._get_json(f"https://hexdb.io/api/v1/route/icao/{urllib.parse.quote(callsign)}")
+            parts = [p for p in str(d.get("route") or "").split("-") if p]
+            if len(parts) < 2:
+                return None
+            return {"origin": self.airport(parts[0]), "destination": self.airport(parts[-1])}
+        return self._cached(("rt", callsign), fetch) if callsign else None
+
+    def photo(self, hex_):
+        def fetch():
+            d = self._get_json(f"https://api.planespotters.net/pub/photos/hex/{hex_}")
+            photos = d.get("photos") or []
+            if not photos:
+                return None
+            ph = photos[0]
+            src = (ph.get("thumbnail_large") or ph.get("thumbnail") or {}).get("src")
+            return {"src": src, "link": ph.get("link") or "", "photographer": ph.get("photographer") or ""} if src else None
+        return self._cached(("ph", hex_), fetch)
+
+    def info(self, hex_, callsign):
+        f_ac = self.pool.submit(self.aircraft, hex_)
+        f_rt = self.pool.submit(self.route, callsign)
+        f_ph = self.pool.submit(self.photo, hex_)
+        return {"hex": hex_, "callsign": callsign, "aircraft": f_ac.result(), "route": f_rt.result(), "photo": f_ph.result()}
+
+
 class Handler(SimpleHTTPRequestHandler):
+    lookup = None
     feed = None
     args = None
 
@@ -131,6 +212,15 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as e:  # upstream down, network error, bad JSON…
                 self.log_error("feed error: %s", e)
                 return self.send_json({"error": str(e)}, 502)
+        if path == "/api/info":
+            q = urllib.parse.parse_qs(query)
+            hex_ = (q.get("hex", [""])[0]).strip().lower()
+            callsign = "".join(c for c in q.get("callsign", [""])[0].upper() if c.isalnum())[:8]
+            if not hex_ or not all(c in "0123456789abcdef~" for c in hex_) or len(hex_) > 7:
+                return self.send_json({"error": "hex must be the aircraft's 24-bit ICAO address"}, 400)
+            if self.args.no_lookups:
+                return self.send_json({"hex": hex_, "callsign": callsign, "aircraft": None, "route": None, "photo": None})
+            return self.send_json(self.lookup.info(hex_.lstrip("~"), callsign))
         if path not in ("/", "/index.html", "/geo.js"):
             self.send_error(404)
             return
@@ -148,11 +238,13 @@ def main():
     ap.add_argument("--readsb-url", default="http://localhost:8080/data/aircraft.json")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--no-lookups", action="store_true", help="don't look up routes, owners or photos for tapped aircraft")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
     Handler.args = args
     Handler.feed = Feed(args)
+    Handler.lookup = Lookup()
     server = ThreadingHTTPServer((args.host, args.port), functools.partial(Handler, directory=str(HERE)))
     print(f"Overhead Radar on http://{args.host}:{args.port}  source={args.source}  centre={args.lat},{args.lon}")
     try:

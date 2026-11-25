@@ -7,9 +7,9 @@ A live radar of the aircraft around you, designed for a round desktop screen. It
 - Aircraft icons point along their track, are coloured by altitude and leave a short trail
 - Each label shows callsign, flight level or altitude, a climb/descent arrow and ground speed
 - A **Nearest / Overhead now** panel shows type, registration, distance and bearing
+- **Tap any plane** for its details: route, operator, type, registration, live altitude/speed/climb, and a photo of that exact aircraft (or a drawn outline of its type when there's no photo)
 - Emergency squawks (7500 / 7600 / 7700) flash red
-- Tap the screen (or press `+` / `-`) to cycle the range: 10, 20, 40, 80 nm
-- The ⚙ button (or `S`) changes the centre point: presets, typed coordinates, your device's location, or tap a spot on the map
+- Touch buttons zoom in and out (5–80 nm), switch between saved **places**, and edit or add places (presets, typed coordinates, the device's location, or tap a spot on the map)
 - If no live feed is reachable, it falls back to **demo traffic** (labelled `DEMO`)
 
 Altitude colours run green (low) → yellow (FL100) → amber (FL200) → red (FL300) → purple (FL400). Grey means on the ground.
@@ -49,6 +49,7 @@ python3 server.py --source readsb --readsb-url http://localhost:8080/data/aircra
 | `--radius` | 100 | Search radius in nm for online sources |
 | `--interval` | 5 | Seconds between data fetches |
 | `--host`, `--port` | 127.0.0.1, 8000 | Use `--host 0.0.0.0` to view from other devices on your network |
+| `--no-lookups` | off | Don't look up routes, owners or photos when a plane is tapped |
 
 The page also accepts URL overrides: `?lat=53.30&lon=-8.94&name=Carnmore&range=20`.
 
@@ -72,6 +73,17 @@ With an online source, the server fetches traffic around whichever centre the sc
 To build a map for another area, edit the bounds at the top of `tools/build_geo.py` and follow the instructions in that file.
 
 Map data © OpenStreetMap contributors, available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1.0/), via [@geo-maps](https://github.com/simonepri/geo-maps) (1 km resolution).
+
+**Building the physical display:** see [HARDWARE.md](HARDWARE.md) for the parts list, controls, and the 3D-printable cases in `case/`.
+
+### Flight details and photos
+
+When you tap a plane, the server looks it up, caching each answer for 6 hours:
+
+- **hexdb.io:** owner, type and registration, plus the route. Routes are crowd-sourced from callsigns, so a charter or a changed flight number can show the wrong route.
+- **planespotters.net:** a photo of that airframe. The photographer is credited on screen, as their terms require.
+
+Both are free community services. Use `--no-lookups` to turn them off.
 
 ## Putting it on a round screen
 
