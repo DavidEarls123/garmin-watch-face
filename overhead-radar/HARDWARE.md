@@ -12,8 +12,8 @@ Prices are approximate and Amazon listings change often, so check each one befor
 | 4 | SanDisk Extreme 32 GB microSD (A1) | [amazon.ie/dp/B06XYTDCC5](https://www.amazon.ie/dp/B06XYTDCC5) | ~€13 |
 | 5 | Micro-HDMI to HDMI cable, 30 cm (Silkland) | [search "Silkland micro HDMI 30cm"](https://www.amazon.ie/s?k=Silkland+micro+HDMI+to+HDMI+30cm) | ~€10 |
 | 6 | Raspberry Pi 5 Active Cooler (the case is enclosed) | [search](https://www.amazon.ie/s?k=raspberry+pi+5+active+cooler) | ~€8 |
-| 7 | M2 / M2.5 / M3 screw kit (874 pcs, 6–12 mm) | [amazon.ie/dp/B0DRSKGTH3](https://www.amazon.ie/dp/B0DRSKGTH3) | ~€11 |
-| 8 | 1 mm double-sided foam tape | [search](https://www.amazon.ie/s?k=1mm+foam+tape+double+sided) | ~€6 |
+| 7 | Screws: 4 × **M3 × 16 button head** + 8 × **M2.5 × 6–8** (see *Hardware for the case*). The 874-piece kit covers the M2.5; get M3 × 16 button heads separately. | [M2.5 kit B0DRSKGTH3](https://www.amazon.ie/dp/B0DRSKGTH3) · [search M3×16 button head](https://www.amazon.ie/s?k=M3+x+16+button+head+screw) | ~€15 |
+| 8 | **1 mm thick, 5 mm wide, single-sided** black EVA or neoprene foam tape (about 0.5 m used) | [search](https://www.amazon.ie/s?k=foam+tape+1mm+thick+5mm+wide+single+sided) | ~€6 |
 | *Optional receiver* | | | |
 | 9 | RTL-SDR Blog V4 dongle | [amazon.ie/dp/B0CD745394](https://www.amazon.ie/dp/B0CD745394) | ~€55 |
 | 10 | Bingfu 1090 MHz magnetic antenna (SMA, 3 m lead) | [amazon.ie/dp/B07ZH5FJBW](https://www.amazon.ie/dp/B07ZH5FJBW) | ~€15 |
@@ -22,7 +22,7 @@ The total is about €390 without the receiver, or €460 with it.
 
 - **Cheaper Pi:** Amazon.ie prices for the Pi are well above the official price. A Pi 5 bought from an approved Raspberry Pi reseller (several ship to Ireland) typically costs around half as much.
 - **Smaller, cheaper screen:** the Waveshare 3.4″ HDMI round touch display (800×800, around €107 on Amazon.ie) also works, but it's harder to read from across a desk. You would need to measure it and set the case dimensions yourself.
-- **Screw kit:** it has countersunk heads only up to 12 mm. The bezel needs M3 × 16, so either buy a few M3 × 16 cap screws separately, or set `lip_t`/`margin` so M3 × 12 is long enough (the screw needs about 6 mm of thread in the box).
+- **Screw kit:** the 874-piece kit has M2.5 × 6/8 for the Pi and the retaining ring, but no M3 longer than 12 mm. M3 × 12 would only bite about 3 mm into the box, so get M3 × 16 button-head screws separately.
 
 ### Case files for this screen
 
@@ -111,10 +111,10 @@ Check the fit before printing everything. Print `retaining_ring` first, then the
 
 | Screws | Where |
 |---|---|
-| 4 × M3 × 16 (instrument) or 3 × M3 × 16 (puck) | Bezel into the box or body. Self-tapping into the printed pilot holes, or set `screw_pilot = 4.0` and use M3 heat-set inserts. |
-| 4 × M2.5 × 8 | Retaining ring into the back of the bezel, clamping the screen |
-| 4 × M2.5 × 6 | Raspberry Pi onto the standoffs |
-| 1 mm foam tape | A ring on the back of the screen where the retaining ring presses |
+| 4 × **M3 × 16 button head** (ISO 7380), or 3 for the puck | Bezel into the box or body. The 1.8 mm counterbore makes a button head sit flush; a socket cap head would stand 1.2 mm proud. They pass 8.7 mm through the bezel and thread about 7 mm into the box's 2.6 mm pilot holes. M3 × 20 also works. For stronger threads, set `screw_pilot = 4.0` and fit M3 × 5 heat-set inserts (5 mm outer diameter). |
+| 4 × **M2.5 × 8** (any head) | Retaining ring into the back of the bezel. They pass the 2.5 mm ring and bite 5.5 mm into the bezel; the pilot holes stop 0.8 mm short of the front, so nothing comes through. |
+| 4 × **M2.5 × 6** (M2.5 × 5 also fine) | Raspberry Pi onto the 6 mm standoffs. They pass the 1.6 mm board and bite about 4.4 mm into the 5 mm-deep pilot holes. |
+| **1 mm × 5 mm single-sided foam tape**, about 0.5 m | Stick it to the retaining ring, not the screen, so the screen comes out cleanly. The ring overlaps the back edge of the screen by 3 mm (its opening is 144 mm), so 5 mm tape covers it with a little to trim. The bezel pocket is 8 mm deep: 7 mm for the panel plus 1 mm for the foam. |
 
 ### Assembly
 
