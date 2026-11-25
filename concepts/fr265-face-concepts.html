@@ -116,7 +116,7 @@ ul.limits { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 7
       <h3><span class="n">03</span>Flight Category</h3>
       <p>The outer ring turns green, blue, red or magenta for VFR, MVFR, IFR or LIFR at your chosen airfield. Shows the decoded METAR and the crosswind on your runway.</p>
       <div class="chips"><span class="chip med">Medium</span><span class="chip phone">Phone data</span></div>
-      <dl><dt>Shows</dt><dd>Live METAR, wind arrow, QNH, crosswind, sunset and UK night (sunset +30 min)</dd>
+      <dl><dt>Shows</dt><dd>Live METAR, wind arrow, QNH, crosswind, sunset and the start of legal night (end of civil twilight)</dd>
       <dt>Always-on</dt><dd>Time with a thin ring in the category colour</dd></dl>
     </div></article>
 
@@ -188,11 +188,11 @@ ul.limits { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 7
     <thead><tr><th>Item</th><th>Possible?</th><th>How</th></tr></thead>
     <tbody>
       <tr><td colspan="3" class="group">Flying</td></tr>
-      <tr><td>METAR for your airfield, decoded</td><td class="v yes">Yes</td><td>aviationweather.gov has a free JSON API with no key. You set the ICAO code (e.g. EGCC) in the phone settings.</td></tr>
+      <tr><td>METAR for your airfield, decoded</td><td class="v yes">Yes</td><td>aviationweather.gov has a free JSON API with no key. Covers Irish stations (EIDW, EICK, EINN, EIKN, EIME and others). You set the ICAO code in the phone settings. Small strips without a METAR use the nearest station.</td></tr>
       <tr><td>Flight category colour (VFR / MVFR / IFR / LIFR)</td><td class="v yes">Yes</td><td>Comes with the METAR, or is worked out from ceiling and visibility.</td></tr>
       <tr><td>Crosswind and headwind for your runway</td><td class="v yes">Yes</td><td>Calculated on the watch from METAR wind and a runway heading you enter.</td></tr>
       <tr><td>Density altitude</td><td class="v yes">Yes</td><td>From METAR temperature, QNH and field elevation.</td></tr>
-      <tr><td>Sunset, civil twilight, UK night (sunset +30 min)</td><td class="v yes">Yes</td><td>Calculated on the watch. No internet needed.</td></tr>
+      <tr><td>Sunset and legal night (Ireland/EASA: end of evening civil twilight, sun 6° below the horizon)</td><td class="v yes">Yes</td><td>Calculated on the watch. No internet needed.</td></tr>
       <tr><td>TAF headline (e.g. "BECMG IFR 14Z")</td><td class="v part">Partly</td><td>Same source. The full text is too long, so it would show only the next change.</td></tr>
       <tr><td>NOTAMs, airspace warnings</td><td class="v no">No</td><td>The text is long and the APIs need logins. Better kept on your EFB.</td></tr>
       <tr><td colspan="3" class="group">Manchester United and football</td></tr>
@@ -326,12 +326,12 @@ ul.limits { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 7
     for (var a = 0; a < 360; a += 30) { var p0 = pt(C, C, 178, a), p1 = pt(C, C, 186, a); b += '<line x1="' + p0[0] + '" y1="' + p0[1] + '" x2="' + p1[0] + '" y2="' + p1[1] + '" stroke="#4a4f57" stroke-width="2"/>'; }
     var tip = pt(C, C, 170, 240), b1 = pt(C, C, 192, 233), b2 = pt(C, C, 192, 247);
     b += '<polygon points="' + tip.join(',') + ' ' + b1.join(',') + ' ' + b2.join(',') + '" fill="#fff"/>';
-    b += T(208, 90, 'EGCC', { s: 18, f: F.m, c: '#9aa1ad', w: 400, ls: 3 });
+    b += T(208, 90, 'EIDW', { s: 18, f: F.m, c: '#9aa1ad', w: 400, ls: 3 });
     b += '<rect x="170" y="100" width="76" height="28" rx="14" fill="#3ddc84"/>' + T(208, 121, 'VFR', { s: 19, w: 700, c: '#04210f' });
     b += T(208, 215, '09:16', { s: 92, w: 700 });
-    var rows = ['240°/12KT G18', 'VIS 10KM FEW030', 'QNH 1018  09/04', 'RWY 23 XW 2KT'];
+    var rows = ['240°/12KT G18', 'VIS 10KM FEW030', 'QNH 1018  09/04', 'RWY 28 XW 8KT'];
     rows.forEach(function (r, i) { b += T(208, 256 + i * 26, r, { s: 17, f: F.m, c: '#d7dde6', w: 400 }); });
-    b += T(208, 370, 'SS 16:26 · NIGHT 16:56', { s: 13, f: F.m, c: '#ffb547', w: 600 });
+    b += T(208, 370, 'SS 16:26 · NIGHT 17:05', { s: 13, f: F.m, c: '#ffb547', w: 600 });
     return wrap('metar', '', b, 'Flight Category concept');
   };
 
@@ -366,7 +366,7 @@ ul.limits { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 7
     b += row('09:16', 88, 46, 66, 52, '#fff');
     b += row('WED 25 NOV', 172, 20, 28, 18, '#fff');
     b += row('MUN SAT 1500', 206, 20, 28, 18, '#ff6b81');
-    b += row('EGCC VFR 2412', 240, 20, 28, 18, '#3ddc84');
+    b += row('EIDW VFR 2412', 240, 20, 28, 18, '#3ddc84');
     b += row('HR 59  BB 72', 274, 20, 28, 18, '#fff');
     b += row('SUNSET 1626', 308, 20, 28, 18, '#ffb547');
     b += T(208, 368, 'GATE 265', { s: 12, f: F.m, c: '#666', w: 400, ls: 3 });
