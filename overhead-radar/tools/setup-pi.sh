@@ -2,13 +2,14 @@
 # Overhead Radar – one-time setup on a Raspberry Pi (Raspberry Pi OS Bookworm, desktop).
 #
 #   sudo ./tools/setup-pi.sh                         # online data only (adsb.lol)
-#   sudo ./tools/setup-pi.sh --with-receiver         # + RTL-SDR Blog V4 dongle and readsb
+#   sudo ./tools/setup-pi.sh --with-receiver         # + RTL-SDR dongle (V3 or similar) and readsb
+#   sudo ./tools/setup-pi.sh --with-receiver --rtlsdr-v4   # RTL-SDR Blog V4: also installs its driver
 #   sudo ./tools/setup-pi.sh --with-receiver --lat 53.2707 --lon -9.0568 --name Galway
 #
 # What it does:
 #   1. installs Chromium (for the full-screen page)
-#   2. with --with-receiver: installs readsb (wiedehopf's installer), then the RTL-SDR Blog V4
-#      driver, blacklists the TV-tuner driver and sets the receiver's location
+#   2. with --with-receiver: installs readsb (wiedehopf's installer), blacklists the TV-tuner driver
+#      and sets the receiver's location; with --rtlsdr-v4 also the RTL-SDR Blog V4 driver
 #   3. creates a systemd service for server.py (source "hybrid" with a receiver, "adsblol" without)
 #   4. opens the radar full screen when the desktop starts
 # Safe to run again; each step checks what is already there.
@@ -19,16 +20,18 @@ LAT=53.2707
 LON=-9.0568
 NAME=Galway
 RECEIVER=0
+V4=0
 KIOSK=1
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --with-receiver) RECEIVER=1 ;;
+        --rtlsdr-v4) RECEIVER=1; V4=1 ;;
         --no-kiosk) KIOSK=0 ;;
         --lat) LAT="$2"; shift ;;
         --lon) LON="$2"; shift ;;
         --name) NAME="$2"; shift ;;
-        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (try --help)"; exit 1 ;;
     esac
     shift
@@ -65,6 +68,7 @@ if [[ $RECEIVER -eq 1 ]]; then
         echo "readsb already installed"
     fi
 
+    if [[ $V4 -eq 1 ]]; then
     step "RTL-SDR Blog V4 driver (the stock library may not support the V4's tuner)"
     if [[ ! -f /usr/local/lib/.rtlsdr-blog-installed ]]; then
         DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git cmake build-essential pkg-config libusb-1.0-0-dev
@@ -82,6 +86,7 @@ if [[ $RECEIVER -eq 1 ]]; then
         touch /usr/local/lib/.rtlsdr-blog-installed
     else
         echo "RTL-SDR Blog driver already installed"
+    fi
     fi
     echo 'blacklist dvb_usb_rtl28xxu' > /etc/modprobe.d/blacklist-dvb_usb_rtl28xxu.conf
     udevadm control --reload-rules || true

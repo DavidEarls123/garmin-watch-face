@@ -10,6 +10,7 @@ A live radar of the aircraft around you, designed for a round desktop screen. It
 - **Tap any plane** for its details: route, operator, type, registration, live altitude/speed/climb, and a photo of that exact aircraft (or a drawn outline of its type when there's no photo)
 - Emergency squawks (7500 / 7600 / 7700) flash red
 - Touch buttons zoom in and out (5–80 nm), switch between saved **places**, and edit or add places (presets, typed coordinates, the device's location, or tap a spot on the map)
+- **Track a flight** by flight number or callsign (EI105 or EIN105): a progress card on the scope, plus a great-circle view showing distance flown, distance to go and ETA, even when the flight is far away
 - If no live feed is reachable, it falls back to **demo traffic** (labelled `DEMO`)
 
 Altitude colours run green (low) → yellow (FL100) → amber (FL200) → red (FL300) → purple (FL400). Grey means on the ground.
@@ -30,6 +31,7 @@ Then open <http://localhost:8000>. To see the look without any data, open <http:
 |---|---|---|
 | `adsblol` (default) | [adsb.lol](https://adsb.lol), a free community ADS-B network | No key. Coverage over Galway depends on volunteer receivers. |
 | `airplaneslive` | [airplanes.live](https://airplanes.live), another free community network | No key. Keep `--interval` at 2 s or more. |
+| `hybrid` | Your receiver **and** an online network (`--online`, default adsb.lol), merged per aircraft so the fresher position wins | Recommended with a receiver. |
 | `readsb` | Your own receiver: RTL-SDR dongle + 1090 MHz antenna running readsb, dump1090 or tar1090 | Best coverage of low traffic overhead, and it works offline. |
 
 ```bash
@@ -84,6 +86,14 @@ When you tap a plane, the server looks it up, caching each answer for 6 hours:
 - **planespotters.net:** a photo of that airframe. The photographer is credited on screen, as their terms require.
 
 Both are free community services. Use `--no-lookups` to turn them off.
+
+## Raspberry Pi setup in one step
+
+```bash
+sudo ./tools/setup-pi.sh --with-receiver --lat 53.2707 --lon -9.0568 --name Galway
+```
+
+This installs Chromium, readsb (if you have a receiver) and a systemd service, and sets the radar to open full screen at login. Leave out `--with-receiver` if you have no dongle. Add `--rtlsdr-v4` for an RTL-SDR Blog V4. The script hasn't yet been run on a real Pi, so watch its output the first time.
 
 ## Putting it on a round screen
 

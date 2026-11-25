@@ -14,7 +14,7 @@
 // CHECK THEM AGAINST YOUR SCREEN BEFORE PRINTING.
 
 /* [Part] */
-part = "preview_instrument"; // [preview_instrument, preview_puck, instrument_bezel, instrument_box, instrument_stand, puck_bezel, puck_body, retaining_ring]
+part = "preview_instrument"; // [preview_instrument, preview_puck, instrument_bezel, instrument_box, instrument_stand, puck_bezel, puck_body, retaining_ring, antenna_grommet]
 
 /* [Display] */
 disp_d = 136;     // outer diameter of the glass / panel (mm)
@@ -35,21 +35,23 @@ ring_lip = 3;     // how far the ring overlaps the back of the display
 
 /* [Raspberry Pi] */
 pi_holes = [58, 49];   // Pi 3/4/5 mounting-hole pattern (M2.5)
-standoff_h = 6;
+standoff_h = 7;        // M2.5 x 6 or x 8 both fit
 standoff_d = 6.5;
-standoff_pilot = 2.2;  // for M2.5 self-tapping screws (use 3.5 for M2.5 heat-set inserts)
+standoff_pilot = 2.2;  // for M2.5 screws threaded into the plastic (use 3.5 for M2.5 heat-set inserts)
 
 /* [Screws] */
 screw_clear = 3.4;     // M3 clearance hole in the bezel
-screw_head = 6.4;      // M3 head counterbore
+screw_head = 6.4;      // M3 button-head recess (ISO 7380 head: 5.7 mm wide, 1.65 mm tall)
+screw_head_depth = 4;  // deep enough that M3 x 12 grips 5.5 mm and M3 x 16 grips 9.5 mm
 screw_pilot = 2.6;     // M3 self-tapping pilot (4.0 for M3 heat-set inserts)
 ring_screw_pilot = 2.2; // M2.5 into the bezel for the retaining ring
 ring_screw_clear = 2.9;
 
 /* [Openings] */
-power_hole_d = 14;     // USB-C cable with its plug fed through
-sma_hole = true;       // hole for an SMA bulkhead (ADS-B antenna)
-sma_d = 6.6;
+power_hole_d = 16;     // USB-C cable with its plug fed through
+antenna_port = true;   // hole for the antenna lead, closed by the printed antenna_grommet
+antenna_port_d = 13;   // passes the SMA plug on the antenna cable
+coax_d = 3.2;          // antenna cable diameter (RG174 is ~2.8 mm)
 
 $fn = 120;
 
@@ -72,7 +74,7 @@ module pi_standoffs(z0) {
         translate([x * pi_holes[0] / 2, y * pi_holes[1] / 2, z0])
             difference() {
                 cylinder(d = standoff_d, h = standoff_h);
-                translate([0, 0, 1]) cylinder(d = standoff_pilot, h = standoff_h);
+                cylinder(d = standoff_pilot, h = standoff_h + 1);
             }
 }
 
@@ -100,6 +102,26 @@ module retaining_ring() {
     }
 }
 
+// ---------- antenna grommet ----------
+// Feed the antenna's SMA plug through the port from inside, slip the cable into the grommet's slit,
+// then press the grommet into the port from outside. The barb snaps behind the wall.
+module antenna_grommet() {
+    plug_d = antenna_port_d - 0.3;
+    difference() {
+        union() {
+            cylinder(d = antenna_port_d + 5, h = 1.6);                              // outside flange
+            cylinder(d = plug_d, h = 1.6 + wall);                                  // through the wall
+            translate([0, 0, 1.6 + wall]) cylinder(d1 = plug_d + 0.8, d2 = plug_d - 0.6, h = 1.4); // barb
+        }
+        translate([0, 0, -1]) cylinder(d = coax_d, h = 10, $fn = 32);
+        translate([0, -coax_d * 0.42, -1]) cube([antenna_port_d, coax_d * 0.84, 10]);  // slit: the cable clicks in sideways
+        translate([0, 0, 1.6 + 0.6]) difference() {                                // hollow so the barb can flex
+            cylinder(d = plug_d - 2.4, h = 10);
+            cylinder(d = coax_d + 2.4, h = 10, $fn = 32);
+        }
+    }
+}
+
 // ---------- instrument style ----------
 module instrument_bezel() {
     difference() {
@@ -107,7 +129,7 @@ module instrument_bezel() {
         bezel_cuts();
         for (x = [-1, 1], y = [-1, 1]) translate([x * corner_c, y * corner_c, 0]) {
             translate([0, 0, -1]) cylinder(d = screw_clear, h = bezel_h + 2, $fn = 32);
-            translate([0, 0, bezel_h - 1.8]) cylinder(d = screw_head, h = 2, $fn = 32);
+            translate([0, 0, bezel_h - screw_head_depth]) cylinder(d = screw_head, h = screw_head_depth + 1, $fn = 32);
         }
         // fine groove around the window, like an instrument's inner bezel
         translate([0, 0, bezel_h - 0.6]) difference() {
@@ -131,7 +153,7 @@ module instrument_box() {
         for (x = [-1, 1], y = [-1, 1]) translate([x * corner_c, y * corner_c, -depth + 4]) cylinder(d = screw_pilot, h = depth, $fn = 24);
         // back: power cable, antenna, vents
         translate([0, -(S / 2 - 22), -box_h - 1]) cylinder(d = power_hole_d, h = wall + 2);
-        if (sma_hole) translate([30, -(S / 2 - 22), -box_h - 1]) cylinder(d = sma_d, h = wall + 2, $fn = 32);
+        if (antenna_port) translate([34, -(S / 2 - 22), -box_h - 1]) cylinder(d = antenna_port_d, h = wall + 2, $fn = 48);
         vent_slots(-box_h - 1, S / 2 - 38);
     }
 }
@@ -181,7 +203,7 @@ module puck_bezel() {
         bezel_cuts();
         for (a = [0, 120, 240]) rotate(a + 90) translate([R - 3, 0, 0]) {
             translate([0, 0, -1]) cylinder(d = screw_clear, h = bezel_h + 2, $fn = 32);
-            translate([0, 0, bezel_h - 1.8]) cylinder(d = screw_head, h = 2, $fn = 32);
+            translate([0, 0, bezel_h - screw_head_depth]) cylinder(d = screw_head, h = screw_head_depth + 1, $fn = 32);
         }
         desk_cut();
     }
@@ -205,7 +227,7 @@ module puck_body() {
         }
         for (a = [0, 120, 240]) rotate(a + 90) translate([R - 3, 0, -depth + 4]) cylinder(d = screw_pilot, h = depth, $fn = 24);
         translate([0, -(R - 34), -box_h - 1]) cylinder(d = power_hole_d, h = wall + 2);
-        if (sma_hole) translate([28, -(R - 34), -box_h - 1]) cylinder(d = sma_d, h = wall + 2, $fn = 32);
+        if (antenna_port) translate([32, -(R - 34), -box_h - 1]) cylinder(d = antenna_port_d, h = wall + 2, $fn = 48);
         vent_slots(-box_h - 1, R - 42);
         desk_cut();
     }
@@ -245,3 +267,4 @@ else if (part == "instrument_stand") translate([0, 0, 4]) stand_with_slot();
 else if (part == "puck_bezel") translate([0, 0, bezel_h]) rotate([180, 0, 0]) puck_bezel();
 else if (part == "puck_body") translate([0, 0, box_h]) puck_body();
 else if (part == "retaining_ring") retaining_ring();
+else if (part == "antenna_grommet") antenna_grommet();

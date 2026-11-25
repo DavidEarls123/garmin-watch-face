@@ -1,5 +1,29 @@
 # Building the Overhead Radar
 
+## The build as ordered
+
+| Part | Notes |
+|---|---|
+| Raspberry Pi 5 (4 GB) | ✓ |
+| Waveshare 5″ HDMI round touch, 1080×1080 | ✓ The case STLs in `case/stl/waveshare-5in-round/` are sized for it. |
+| BOXPUT 27 W USB-C, UK plug | ✓ 5.1 V / 5 A is what the Pi 5 wants. |
+| SanDisk Extreme 32 GB microSD | ✓ |
+| Silkland micro-HDMI → HDMI 30 cm | ✓ The Pi 5 has micro-HDMI. Check that the screen's socket is full-size HDMI when it arrives; Waveshare often includes an adapter too. |
+| Raspberry Pi Active Cooler | ✓ Needed, since the case is closed. |
+| FandWay M2 / M2.5 / M3 button-head kit (ISO 7380) | ✓ The case takes M3 × 12 or M3 × 16 for the bezel, M2.5 × 8 for the ring, and M2.5 × 6 or 8 for the Pi. |
+| YoiYee 1 mm × 6 mm double-sided foam tape | ✓ Stick it to the retaining ring and **leave the backing film on the side facing the screen**, so it acts as a pad and the screen comes out cleanly. |
+| RTL-SDR Blog **V3** dongle | ✓ Works with the standard driver, so run `setup-pi.sh --with-receiver` without `--rtlsdr-v4`. |
+| Bingfu 1090 MHz magnetic antenna (SMA male, 3 m lead) | ✓ Fits the V3's SMA socket directly. The magnetic base works best on a metal surface: a biscuit-tin lid on the window sill makes a good ground plane. |
+| **Missing: short USB extension, ~30 cm, USB-A male → female** | The dongle is too long to plug straight into the Pi inside the case. Use the extension and stick the dongle to the box floor with a strip of the foam tape. [Amazon.ie search](https://www.amazon.ie/s?k=Kenable+USB+2.0+extension+30cm) (~€4) |
+
+### Antenna lead out of the case
+
+The back of the box (and the puck) has a **13 mm antenna port** beside the 16 mm power hole, closed by the printed `antenna_grommet`:
+
+1. From inside the case, push the antenna's SMA plug out through the port. Connect it to the dongle inside.
+2. Click the cable sideways into the grommet's slit. It's sized for a 3.2 mm lead; change `coax_d` if yours differs.
+3. Press the grommet into the port from outside until the barb snaps behind the wall. It holds the cable and closes the hole.
+
 ## Shopping list (Amazon.ie, checked November 2026)
 
 Prices are approximate and Amazon listings change often, so check each one before ordering. Ireland uses the same Type G plug as the UK, so "UK plug" power supplies are correct.
@@ -111,9 +135,9 @@ Check the fit before printing everything. Print `retaining_ring` first, then the
 
 | Screws | Where |
 |---|---|
-| 4 × **M3 × 16 button head** (ISO 7380), or 3 for the puck | Bezel into the box or body. The 1.8 mm counterbore makes a button head sit flush; a socket cap head would stand 1.2 mm proud. They pass 8.7 mm through the bezel and thread about 7 mm into the box's 2.6 mm pilot holes. M3 × 20 also works. For stronger threads, set `screw_pilot = 4.0` and fit M3 × 5 heat-set inserts (5 mm outer diameter). |
+| 4 × **M3 × 12 or M3 × 16, button head** (ISO 7380), or 3 for the puck | Bezel into the box or body. The heads sit in 4 mm recesses, so 12 mm screws grip 5.5 mm and 16 mm screws grip 9.5 mm of the box's 2.6 mm pilot holes. For stronger threads, set `screw_pilot = 4.0` and fit M3 × 5 heat-set inserts. |
 | 4 × **M2.5 × 8** (any head) | Retaining ring into the back of the bezel. They pass the 2.5 mm ring and bite 5.5 mm into the bezel; the pilot holes stop 0.8 mm short of the front, so nothing comes through. |
-| 4 × **M2.5 × 6** (M2.5 × 5 also fine) | Raspberry Pi onto the 6 mm standoffs. They pass the 1.6 mm board and bite about 4.4 mm into the 5 mm-deep pilot holes. |
+| 4 × **M2.5 × 6 or × 8** | Raspberry Pi onto the 7 mm standoffs, whose pilot holes run their full height. |
 | **1 mm × 5 mm single-sided foam tape**, about 0.5 m | Stick it to the retaining ring, not the screen, so the screen comes out cleanly. The ring overlaps the back edge of the screen by 3 mm (its opening is 144 mm), so 5 mm tape covers it with a little to trim. The bezel pocket is 8 mm deep: 7 mm for the panel plus 1 mm for the foam. |
 
 ### Assembly
