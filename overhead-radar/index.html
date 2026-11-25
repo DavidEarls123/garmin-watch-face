@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ARTIFACT-START -->
+<title>Overhead Radar</title>
+<style>
+  :root {
+    --bg: #000;
+    --scope: #06121a;
+    --ring: #1d3b4a;
+    --text: #d8e6ee;
+    --muted: #7f97a6;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
+  body { display: grid; place-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="scope" aria-label="Radar showing aircraft overhead"></canvas>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- configuration ----------
+  // Defaults centre on Galway. Override with ?lat=..&lon=..&range=..&demo=1,
+  // or let server.py supply them via api/config.
+  var params = new URLSearchParams(location.search);
+  var CFG = {
+    name: 'GALWAY',
+    lat: 53.2707,
+    lon: -9.0568,
+    ranges: [10, 20, 40, 80],
+    rangeIdx: 2,
+    pollMs: 5000,
+    demo: params.get('demo') === '1'
+  };
+  if (params.get('lat')) CFG.lat = parseFloat(params.get('lat'));
+  if (params.get('lon')) CFG.lon = parseFloat(params.get('lon'));
+  if (params.get('name')) CFG.name = params.get('name').toUpperCase();
+  try {
+    var savedRange = localStorage.getItem('overhead-radar-range');
+    if (savedRange !== null && CFG.ranges[+savedRange]) CFG.rangeIdx = +savedRange;
+  } catch (e) { /* storage unavailable */ }
+  if (params.get('range')) {
+    var want = parseFloat(params.get('range'));
+    var i = CFG.ranges.indexOf(want);
+    if (i >= 0) CFG.rangeIdx = i; else { CFG.ranges.push(want); CFG.rangeIdx = CFG.ranges.length - 1; }
+  }
+
+  // Reference points drawn when inside the current range.
+  var PLACES = [
+    { id: 'EICM', lat: 53.3003, lon: -8.9416, kind: 'apt' },
+    { id: 'EINN', lat: 52.7020, lon: -8.9248, kind: 'apt' },
+    { id: 'EIKN', lat: 53.9103, lon: -8.8185, kind: 'apt' },
+    { id: 'EIIM', lat: 53.1067, lon: -9.6536, kind: 'apt' },
+    { id: 'EICA', lat: 53.1147, lon: -9.4678, kind: 'apt' },
+    { id: 'Galway', lat: 53.2707, lon: -9.0568, kind: 'town' },
+    { id: 'Ennis', lat: 52.8436, lon: -8.9864, kind: 'town' },
+    { id: 'Clifden', lat: 53.4893, lon: -10.0193, kind: 'town' },
+    { id: 'Athlone', lat: 53.4239, lon: -7.9407, kind: 'town' }
+  ];
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var FONT = "ui-monospace, 'DejaVu Sans Mono', 'Menlo', 'Consolas', monospace";
+
+  // ---------- geometry (nm, flat-earth around the centre: fine to ~150 nm) ----------
+  var D2R = Math.PI / 180;
+  function toXY(lat, lon) {
+    return [(lon - CFG.lon) * Math.cos(CFG.lat * D2R) * 60, (lat - CFG.lat) * 60];
+  }
+  function fromXY(x, y) {
+    return [CFG.lat + y / 60, CFG.lon + x / (60 * Math.cos(CFG.lat * D2R))];
+  }
+  function bearingName(x, y) {
+    var b = (Math.atan2(x, y) / D2R + 360) % 360;
+    return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(b / 45) % 8];
+  }
+
+  // ---------- aircraft state ----------
+  var planes = new Map(); // hex -> plane
+  var status = { source: '', lastOk: 0, error: '' };
+
+  function ingest(list, nowMs) {
+    list.forEach(function (a) {
+      if (a.lat == null || a.lon == null || !a.hex) return;
+      var xy = toXY(a.lat, a.lon);
+      var fixT = nowMs - (a.seen || 0) * 1000;
+      var p = planes.get(a.hex);
+      if (!p) { p = { trail: [] }; planes.set(a.hex, p); }
+      var last = p.trail[p.trail.length - 1];
+      if (!last || Math.hypot(last[0] - xy[0], last[1] - xy[1]) > 0.15) {
+        p.trail.push(xy);
+        if (p.trail.length > 40) p.trail.shift();
+      }
+      p.hex = a.hex;
+      p.flight = (a.flight || '').trim() || (a.reg || a.hex.toUpperCase());
+      p.reg = a.reg || '';
+      p.type = a.type || '';
+      p.alt = a.alt;
+      p.ground = !!a.ground;
+      p.gs = a.gs || 0;
+      p.track = a.track;
+      p.vr = a.vr || 0;
+      p.squawk = a.squawk || '';
+      p.x = xy[0]; p.y = xy[1]; p.fixT = fixT;
+      p.updated = nowMs;
+    });
+    planes.forEach(function (p, k) { if (nowMs - p.updated > 60000) planes.delete(k); });
+  }
+
+  // Dead-reckon between updates so motion is smooth.
+  function posNow(p, nowMs) {
+    if (p.track == null || !p.gs || p.ground) return [p.x, p.y];
+    var dt = Math.min(Math.max((nowMs - p.fixT) / 1000, 0), 20);
+    var d = p.gs * dt / 3600;
+    return [p.x + d * Math.sin(p.track * D2R), p.y + d * Math.cos(p.track * D2R)];
+  }
+
+  // ---------- live feed ----------
+  function fetchJSON(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  function poll() {
+    fetchJSON('api/aircraft').then(function (j) {
+      ingest(j.aircraft || [], Date.now());
+      status.lastOk = Date.now();
+      status.error = '';
+      status.source = j.source || 'live';
+    }).catch(function (e) {
+      status.error = String(e.message || e);
+    }).then(function () { setTimeout(poll, CFG.pollMs); });
+  }
+
+  // ---------- demo traffic (used when no server is reachable) ----------
+  // Galway sits under the North Atlantic tracks: lots of high westbound traffic by day.
+  var demo = [];
+  function startDemo() {
+    status.source = 'DEMO';
+    var seed = [
+      // flight, type, reg, alt, gs, track, x, y, vr, turn(deg/s), squawk
+      ['DAL41', 'A333', 'N811NW', 37000, 492, 284, 18, -6, 0, 0],
+      ['UAL23', 'B789', 'N26960', 39000, 508, 291, -4, 3, 0, 0],
+      ['AAL105', 'B77W', 'N717AN', 35000, 476, 279, 30, 12, 0, 0],
+      ['BAW117', 'A35K', 'G-XWBA', 38000, 515, 287, 9, -22, 0, 0],
+      ['ACA849', 'B788', 'C-GHPQ', 36000, 488, 296, -26, -14, 0, 0],
+      ['EIN105', 'A21N', 'EI-LRA', 34000, 470, 283, 36, -2, 0, 0],
+      ['RYR4KT', 'B38M', 'EI-HEA', 9800, 290, 18, -3, -30, -1400, 0],
+      ['EAI32D', 'AT76', 'EI-HDJ', 14000, 250, 352, 8, -34, 900, 0],
+      ['EIBCF', 'C172', 'EI-BCF', 2300, 95, 120, 6, 2.5, 0, 3]
+    ];
+    var now = Date.now();
+    demo = seed.map(function (s, i) {
+      return { hex: 'd' + i, flight: s[0], type: s[1], reg: s[2], alt: s[3], gs: s[4], track: s[5],
+               x: s[6], y: s[7], vr: s[8], turn: s[9], squawk: '7000', t: now };
+    });
+    demoTick();
+    setInterval(demoTick, 1000);
+  }
+  function demoTick() {
+    var now = Date.now(), lim = CFG.ranges[CFG.rangeIdx] * 1.25 + 5;
+    var out = demo.map(function (a) {
+      var dt = (now - a.t) / 1000; a.t = now;
+      a.track = (a.track + a.turn * dt + 360) % 360;
+      var d = a.gs * dt / 3600;
+      a.x += d * Math.sin(a.track * D2R);
+      a.y += d * Math.cos(a.track * D2R);
+      a.alt = Math.max(1500, a.alt + a.vr * dt / 60);
+      if (Math.hypot(a.x, a.y) > lim) { // re-enter on the far side
+        a.x = -a.x * 0.95; a.y = -a.y * 0.95; a.trail = true;
+        var p = planes.get(a.hex); if (p) p.trail = [];
+      }
+      var ll = fromXY(a.x, a.y);
+      return { hex: a.hex, flight: a.flight, type: a.type, reg: a.reg, lat: ll[0], lon: ll[1], alt: Math.round(a.alt),
+               gs: a.gs, track: a.track, vr: a.vr, squawk: a.squawk, seen: 0 };
+    });
+    ingest(out, now);
+    status.lastOk = now;
+  }
+
+  // ---------- drawing ----------
+  var canvas = document.getElementById('scope');
+  var ctx = canvas.getContext('2d');
+  var S = 0, dpr = 1;
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    S = Math.min(window.innerWidth, window.innerHeight);
+    canvas.style.width = canvas.style.height = S + 'px';
+    canvas.width = canvas.height = Math.round(S * dpr);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  var ALT_STOPS = [[0, [61, 220, 132]], [10000, [198, 232, 74]], [20000, [255, 181, 71]], [30000, [255, 107, 107]], [40000, [209, 107, 255]]];
+  function altColor(alt, ground) {
+    if (ground || alt == null) return 'rgb(138,143,152)';
+    var a = Math.max(0, Math.min(40000, alt));
+    for (var i = 1; i < ALT_STOPS.length; i++) {
+      if (a <= ALT_STOPS[i][0]) {
+        var lo = ALT_STOPS[i - 1], hi = ALT_STOPS[i], t = (a - lo[0]) / (hi[0] - lo[0]);
+        return 'rgb(' + [0, 1, 2].map(function (k) { return Math.round(lo[1][k] + (hi[1][k] - lo[1][k]) * t); }).join(',') + ')';
+      }
+    }
+    return 'rgb(209,107,255)';
+  }
+  function altText(p) {
+    if (p.ground) return 'GND';
+    if (p.alt == null) return '—';
+    return p.alt >= 10000 ? 'FL' + String(Math.round(p.alt / 100)).padStart(3, '0') : Math.round(p.alt / 100) * 100 + 'ft';
+  }
+  function vrArrow(vr) { return vr > 300 ? '↑' : vr < -300 ? '↓' : ''; }
+  function isEmergency(sq) { return sq === '7500' || sq === '7600' || sq === '7700'; }
+
+  // Right half of a plane silhouette pointing up, unit size; mirrored for the left half.
+  var PLANE = [[0, -1], [0.1, -0.82], [0.12, -0.3], [0.95, 0.18], [0.95, 0.34], [0.12, 0.12], [0.09, 0.62], [0.38, 0.84], [0.38, 0.96], [0, 0.86]];
+  function drawPlane(x, y, size, track, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((track || 0) * D2R);
+    ctx.beginPath();
+    PLANE.forEach(function (p, i) { ctx[i ? 'lineTo' : 'moveTo'](p[0] * size, p[1] * size); });
+    for (var i = PLANE.length - 2; i > 0; i--) ctx.lineTo(-PLANE[i][0] * size, PLANE[i][1] * size);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = 'rgba(0,0,0,.8)';
+    ctx.lineWidth = size * 0.12;
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function frame() {
+    var now = Date.now();
+    var W = S * dpr, cx = W / 2, cy = W / 2, R = W / 2 * 0.94;
+    var range = CFG.ranges[CFG.rangeIdx], k = R / range;
+    var u = W / 100; // 1% of screen
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, W);
+
+    // scope background
+    var bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    bg.addColorStop(0, '#0b1f2a'); bg.addColorStop(1, '#03090d');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(cx, cy, W / 2, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+
+    // sweep
+    if (!reduceMotion && ctx.createConicGradient) {
+      var sa = (now / 4000 % 1) * Math.PI * 2 - Math.PI / 2, wedge = 0.7;
+      var g = ctx.createConicGradient(sa - wedge, cx, cy);
+      g.addColorStop(0, 'rgba(61,220,160,0)');
+      g.addColorStop(wedge / (Math.PI * 2), 'rgba(61,220,160,0.13)');
+      g.addColorStop(wedge / (Math.PI * 2) + 0.0005, 'rgba(61,220,160,0)');
+      g.addColorStop(1, 'rgba(61,220,160,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, W);
+    }
+
+    // range rings
+    ctx.strokeStyle = '#1d3b4a'; ctx.lineWidth = Math.max(1, u * 0.15);
+    ctx.fillStyle = '#5f7c8c'; ctx.font = (u * 2.1) + 'px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for (var r = 1; r <= 4; r++) {
+      var rr = R * r / 4;
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+      if (r < 4) ctx.fillText((range * r / 4) + '', cx + rr * Math.cos(-0.35) + u * 0.6, cy + rr * Math.sin(-0.35));
+    }
+    ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+    ctx.strokeStyle = 'rgba(29,59,74,.6)'; ctx.stroke();
+
+    // places
+    ctx.font = (u * 2) + 'px ' + FONT; ctx.textAlign = 'left';
+    PLACES.forEach(function (pl) {
+      var xy = toXY(pl.lat, pl.lon);
+      var dd = Math.hypot(xy[0], xy[1]);
+      if (dd > range * 0.97 || dd < range * 0.02) return;
+      var px = cx + xy[0] * k, py = cy - xy[1] * k;
+      ctx.strokeStyle = ctx.fillStyle = pl.kind === 'apt' ? '#6aa7c4' : '#4b6675';
+      ctx.lineWidth = Math.max(1, u * 0.2);
+      if (pl.kind === 'apt') { ctx.beginPath(); ctx.arc(px, py, u * 0.8, 0, Math.PI * 2); ctx.stroke(); }
+      else { ctx.fillRect(px - u * 0.35, py - u * 0.35, u * 0.7, u * 0.7); }
+      ctx.fillText(pl.id, px + u * 1.2, py);
+    });
+
+    // home marker
+    ctx.strokeStyle = '#d8e6ee'; ctx.lineWidth = Math.max(1, u * 0.25);
+    ctx.beginPath(); ctx.moveTo(cx - u * 1.4, cy); ctx.lineTo(cx + u * 1.4, cy); ctx.moveTo(cx, cy - u * 1.4); ctx.lineTo(cx, cy + u * 1.4); ctx.stroke();
+
+    // aircraft
+    var list = [];
+    planes.forEach(function (p) {
+      var pos = posNow(p, now);
+      var d = Math.hypot(pos[0], pos[1]);
+      if (d > range * 1.08) return;
+      list.push({ p: p, x: pos[0], y: pos[1], d: d });
+    });
+    list.sort(function (a, b) { return (a.p.alt || 0) - (b.p.alt || 0); });
+    var nearest = null;
+    list.forEach(function (o) { if (!o.p.ground && (!nearest || o.d < nearest.d)) nearest = o; });
+
+    var boxes = [[cx - R * 0.36, cy - R * 0.78, cx + R * 0.36, cy - R * 0.46]]; // clock block
+    if (nearest) boxes.push([cx - R * 0.42, cy + R * 0.64, cx + R * 0.42, cy + R * 0.87]); // nearest card
+    function overlaps(b) {
+      return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; });
+    }
+    list.forEach(function (o) {
+      var p = o.p, col = altColor(p.alt, p.ground), emerg = isEmergency(p.squawk);
+      // trail
+      if (p.trail.length > 1) {
+        ctx.lineWidth = Math.max(1, u * 0.25);
+        for (var i = 1; i < p.trail.length; i++) {
+          ctx.strokeStyle = col.replace('rgb', 'rgba').replace(')', ',' + (0.08 + 0.4 * i / p.trail.length) + ')');
+          ctx.beginPath();
+          ctx.moveTo(cx + p.trail[i - 1][0] * k, cy - p.trail[i - 1][1] * k);
+          ctx.lineTo(cx + p.trail[i][0] * k, cy - p.trail[i][1] * k);
+          ctx.stroke();
+        }
+      }
+      var px = cx + o.x * k, py = cy - o.y * k;
+      if (o === nearest || emerg) {
+        ctx.strokeStyle = emerg ? (Math.floor(now / 400) % 2 ? '#ff3b3b' : '#ffffff') : 'rgba(255,255,255,.75)';
+        ctx.lineWidth = Math.max(1, u * 0.3);
+        ctx.beginPath(); ctx.arc(px, py, u * 3.2, 0, Math.PI * 2); ctx.stroke();
+      }
+      drawPlane(px, py, u * 1.9, p.track, emerg ? '#ff3b3b' : col);
+      boxes.push([px - u * 2, py - u * 2, px + u * 2, py + u * 2]);
+    });
+
+    // labels, most important first: emergencies, nearest, then closest to home.
+    // Each tries right/left, above/below and is dropped if every spot is taken.
+    list.slice().sort(function (a, b) {
+      var pa = isEmergency(a.p.squawk) ? 0 : a === nearest ? 1 : 2, pb = isEmergency(b.p.squawk) ? 0 : b === nearest ? 1 : 2;
+      return pa - pb || a.d - b.d;
+    }).forEach(function (o) {
+      var p = o.p, col = altColor(p.alt, p.ground), emerg = isEmergency(p.squawk);
+      var px = cx + o.x * k, py = cy - o.y * k;
+      var l1 = p.flight + (emerg ? ' ' + p.squawk : ''), l2 = altText(p) + vrArrow(p.vr) + ' ' + Math.round(p.gs) + 'kt';
+      ctx.font = '600 ' + (u * 2.3) + 'px ' + FONT;
+      var tw = Math.max(ctx.measureText(l1).width, ctx.measureText(l2).width * 0.9) + u * 0.5, th = u * 5;
+      var spots = [[1, -1], [-1, -1], [1, 1], [-1, 1]], chosen = null;
+      if (px > cx + R * 0.6) spots = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+      for (var si = 0; si < spots.length && !chosen; si++) {
+        var bx = spots[si][0] > 0 ? px + u * 2.6 : px - u * 2.6 - tw;
+        var by = spots[si][1] < 0 ? py - u * 3 : py + u * 1.2;
+        var box = [bx, by, bx + tw, by + th];
+        var inside = [[box[0], box[1]], [box[2], box[1]], [box[0], box[3]], [box[2], box[3]]].every(function (c) { return Math.hypot(c[0] - cx, c[1] - cy) < R * 0.97; });
+        if (inside && !overlaps(box)) chosen = box;
+      }
+      var must = o === nearest || emerg;
+      if (!chosen && must) { var bx0 = px + u * 2.6, by0 = py - u * 3; chosen = [bx0, by0, bx0 + tw, by0 + th]; }
+      if (chosen) {
+        boxes.push(chosen);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = emerg ? '#ff6b6b' : '#e6f0f5';
+        ctx.fillText(l1, chosen[0], chosen[1] + u * 2.1);
+        ctx.font = (u * 2) + 'px ' + FONT;
+        ctx.fillStyle = col;
+        ctx.fillText(l2, chosen[0], chosen[1] + u * 4.5);
+      }
+    });
+    ctx.restore();
+
+    // compass ticks and letters
+    for (var a = 0; a < 360; a += 10) {
+      var t = (a - 90) * D2R, len = a % 30 ? u * 0.9 : u * 1.8;
+      ctx.strokeStyle = a % 90 ? '#2c5568' : '#8fb3c4';
+      ctx.lineWidth = Math.max(1, u * 0.2);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(t) * R, cy + Math.sin(t) * R);
+      ctx.lineTo(cx + Math.cos(t) * (R + len), cy + Math.sin(t) * (R + len));
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#8fb3c4'; ctx.font = '600 ' + (u * 2.4) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(function (c) {
+      var t = (c[1] - 90) * D2R;
+      ctx.fillText(c[0], cx + Math.cos(t) * (R - u * 3), cy + Math.sin(t) * (R - u * 3));
+    });
+
+    // top: clock + summary
+    var d = new Date(now);
+    var hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#e9f2f6'; ctx.font = '600 ' + (u * 6.5) + 'px ' + FONT;
+    ctx.fillText(hh + ':' + mm, cx, cy - R * 0.62);
+    var stale = now - status.lastOk > 30000;
+    ctx.font = (u * 2.1) + 'px ' + FONT;
+    ctx.fillStyle = stale ? '#ffb547' : '#7f97a6';
+    var airborne = list.filter(function (o) { return !o.p.ground; }).length;
+    var sub = stale ? (status.lastOk ? 'FEED STALE' : 'CONNECTING…') : airborne + ' AIRCRAFT · ' + range + ' NM';
+    ctx.fillText(sub, cx, cy - R * 0.55);
+    ctx.fillStyle = status.source === 'DEMO' ? '#ffb547' : '#4b6675';
+    ctx.fillText(CFG.name + (status.source ? ' · ' + status.source.toUpperCase() : ''), cx, cy - R * 0.49);
+
+    // bottom: nearest aircraft card
+    if (nearest) {
+      var p = nearest.p, cw = R * 0.84, ch = R * 0.23, x0 = cx - cw / 2, y0 = cy + R * 0.64;
+      ctx.fillStyle = 'rgba(3,9,13,.72)';
+      roundRect(x0, y0, cw, ch, u * 2); ctx.fill();
+      ctx.strokeStyle = altColor(p.alt, p.ground); ctx.lineWidth = Math.max(1, u * 0.3);
+      roundRect(x0, y0, cw, ch, u * 2); ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#7f97a6'; ctx.font = (u * 1.9) + 'px ' + FONT;
+      ctx.fillText(nearest.d < 2 ? 'OVERHEAD NOW' : 'NEAREST', cx, y0 + ch * 0.2);
+      ctx.fillStyle = '#ffffff'; ctx.font = '700 ' + (u * 3.6) + 'px ' + FONT;
+      ctx.fillText(p.flight + (p.type ? ' ' + p.type : ''), cx, y0 + ch * 0.48);
+      ctx.fillStyle = altColor(p.alt, p.ground); ctx.font = '600 ' + (u * 2.5) + 'px ' + FONT;
+      ctx.fillText(altText(p) + vrArrow(p.vr) + '  ' + Math.round(p.gs) + ' kt  ' + (p.track != null ? String(Math.round(p.track)).padStart(3, '0') + '°' : ''), cx, y0 + ch * 0.7);
+      ctx.fillStyle = '#9fb6c3'; ctx.font = (u * 2.1) + 'px ' + FONT;
+      ctx.fillText(nearest.d.toFixed(1) + ' nm ' + bearingName(nearest.x, nearest.y) + (p.reg ? '  ·  ' + p.reg : ''), cx, y0 + ch * 0.9);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- input: tap / click / keys cycle the range ----------
+  function setRange(i) {
+    CFG.rangeIdx = (i + CFG.ranges.length) % CFG.ranges.length;
+    try { localStorage.setItem('overhead-radar-range', String(CFG.rangeIdx)); } catch (e) { /* ignore */ }
+  }
+  document.addEventListener('click', function () { setRange(CFG.rangeIdx + 1); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '+' || e.key === '=' || e.key === 'ArrowUp') setRange(CFG.rangeIdx - 1);
+    if (e.key === '-' || e.key === 'ArrowDown') setRange(CFG.rangeIdx + 1);
+  });
+
+  // ---------- start ----------
+  requestAnimationFrame(frame);
+  if (CFG.demo) { startDemo(); return; }
+  fetchJSON('api/config').then(function (c) {
+    if (!params.get('lat') && c.lat != null) { CFG.lat = c.lat; CFG.lon = c.lon; }
+    if (!params.get('name') && c.name) CFG.name = String(c.name).toUpperCase();
+    if (c.poll_seconds) CFG.pollMs = c.poll_seconds * 1000;
+    poll();
+  }).catch(function () { startDemo(); });
+})();
+</script>
+<!-- ARTIFACT-END -->
+</body>
+</html>
