@@ -77,6 +77,15 @@
   .d-stats span { font-size: 1.8vmin; color: var(--muted); letter-spacing: .08em; }
   .d-stats b { font-size: 3.1vmin; }
   .d-credit { font-size: 1.6vmin; color: #4b6675; max-width: 60vmin; }
+  .d-actions { display: flex; gap: 2vmin; margin-top: .6vmin; }
+  .d-actions button { background: #10242f; color: var(--text); border: 1px solid #2c5568; border-radius: 999px;
+                      padding: .9vmin 2.6vmin; font: 600 2.2vmin/1.2 ui-monospace, 'DejaVu Sans Mono', monospace; cursor: pointer; }
+  .d-actions button.primary { background: #2f7a8a; border-color: #3d97a9; color: #fff; }
+  #t-map { width: 58vmin; height: 25vmin; border-radius: 2.2vmin; background: #06121a; border: 1px solid #1d3b4a; flex: none; }
+  .bar { width: 52vmin; height: 1.6vmin; border-radius: 1vmin; background: #10242f; overflow: hidden; flex: none; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #3d97a9, #7dd3fc); }
+  .t-pct { font-size: 2.6vmin; color: #7dd3fc; }
+  .t-status { font-size: 2vmin; color: #ffb547; min-height: 1em; }
 </style>
 </head>
 <body>
@@ -85,6 +94,7 @@
 <button class="ctl" id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in (+)">+</button>
 <button class="ctl" id="places-btn" type="button" aria-label="Places" title="Places (L)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button>
 <button class="ctl" id="gear" type="button" aria-label="Settings" title="Settings (S)">⚙</button>
+<button class="ctl" id="track-btn" type="button" aria-label="Track a flight" title="Track a flight (T)"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg></button>
 <div class="panel" id="panel" hidden>
   <form class="sheet" id="sheet" novalidate>
     <h2>Centre point</h2>
@@ -118,6 +128,35 @@
     </div>
   </div>
 </div>
+<div class="panel" id="track-panel" hidden>
+  <form class="sheet" id="track-form" novalidate>
+    <h2>Track a flight</h2>
+    <label for="t-query">Flight number or callsign<input id="t-query" maxlength="10" autocomplete="off" autocapitalize="characters" placeholder="EI105 or EIN105"></label>
+    <div class="err" id="t-err" role="alert"></div>
+    <div class="chips" id="t-recent"></div>
+    <div class="actions">
+      <button type="button" id="t-cancel">Cancel</button>
+      <button type="submit" class="primary">Track</button>
+    </div>
+    <p class="fine">Works while the aircraft is airborne and broadcasting ADS-B. Some airlines (e.g. Ryanair) fly under callsigns that differ from the flight number; if a number isn’t found, try the callsign shown on the radar.</p>
+  </form>
+</div>
+<div class="panel detail-wrap" id="progress" hidden>
+  <div class="detail" role="dialog" aria-label="Flight progress">
+    <button class="close" id="t-close" type="button" aria-label="Close">×</button>
+    <div class="d-op">TRACKING</div>
+    <div class="d-call" id="t-call"></div>
+    <div class="d-route" id="t-route"></div>
+    <canvas id="t-map" width="580" height="250"></canvas>
+    <div class="bar"><i id="t-bar"></i></div>
+    <div class="t-pct" id="t-pct"></div>
+    <div class="d-stats" id="t-stats"></div>
+    <div class="t-status" id="t-status"></div>
+    <div class="d-actions">
+      <button type="button" id="t-stop">Stop tracking</button>
+    </div>
+  </div>
+</div>
 <div class="panel detail-wrap" id="detail" hidden>
   <div class="detail" role="dialog" aria-label="Flight details">
     <button class="close" id="d-close" type="button" aria-label="Close">×</button>
@@ -128,6 +167,7 @@
     <div class="d-type" id="d-type"></div>
     <div class="d-stats" id="d-stats"></div>
     <div class="d-credit" id="d-credit"></div>
+    <div class="d-actions"><button type="button" id="d-track" class="primary">Track this flight</button></div>
   </div>
 </div>
 <script src="geo.js"></script>
@@ -235,6 +275,7 @@
       p.vr = a.vr || 0;
       p.squawk = a.squawk || '';
       p.cat = a.category || p.cat || '';
+      p.via = a.via || '';
       p.x = xy[0]; p.y = xy[1]; p.fixT = fixT;
       p.updated = nowMs;
     });
@@ -516,6 +557,10 @@
       }
       var px = cx + o.x * k, py = cy - o.y * k;
       hitTargets.push({ hex: p.hex, x: px / dpr, y: py / dpr });
+      if (track && isTracked(p)) {
+        ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = Math.max(2, u * 0.45); ctx.setLineDash([u, u * 0.8]);
+        ctx.beginPath(); ctx.arc(px, py, u * 4.6, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      }
       if (p.hex === selectedHex) {
         ctx.strokeStyle = '#ffb547'; ctx.lineWidth = Math.max(2, u * 0.45);
         ctx.beginPath(); ctx.arc(px, py, u * 4, 0, Math.PI * 2); ctx.stroke();
@@ -594,8 +639,25 @@
     ctx.fillStyle = status.source === 'DEMO' ? '#ffb547' : '#4b6675';
     ctx.fillText(CFG.name + (status.source ? ' · ' + status.source.toUpperCase() : ''), cx, cy - R * 0.49);
 
-    // bottom: nearest aircraft card
-    if (nearest) {
+    // bottom: tracked flight card, or the nearest aircraft
+    var ts = track ? trackSummary(now) : null;
+    trackCardRect = null;
+    if (ts) {
+      var tcw = R * 0.84, tch = R * 0.23, tx0 = cx - tcw / 2, ty0 = cy + R * 0.64;
+      trackCardRect = [tx0 / dpr, ty0 / dpr, (tx0 + tcw) / dpr, (ty0 + tch) / dpr];
+      ctx.fillStyle = 'rgba(3,9,13,.8)'; roundRect(tx0, ty0, tcw, tch, u * 2); ctx.fill();
+      ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = Math.max(1, u * 0.3); roundRect(tx0, ty0, tcw, tch, u * 2); ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#7dd3fc'; ctx.font = (u * 1.9) + 'px ' + FONT;
+      ctx.fillText(ts.label, cx, ty0 + tch * 0.2);
+      ctx.fillStyle = '#ffffff'; ctx.font = '700 ' + (u * 3.2) + 'px ' + FONT;
+      ctx.fillText(ts.title, cx, ty0 + tch * 0.46);
+      var bw = tcw * 0.78, bx = cx - bw / 2, by = ty0 + tch * 0.56, bh = u * 1.2;
+      ctx.fillStyle = '#10242f'; roundRect(bx, by, bw, bh, bh / 2); ctx.fill();
+      if (ts.pct != null) { ctx.fillStyle = '#7dd3fc'; roundRect(bx, by, Math.max(bh, bw * ts.pct), bh, bh / 2); ctx.fill(); }
+      ctx.fillStyle = ts.warn ? '#ffb547' : '#9fb6c3'; ctx.font = (u * 2.1) + 'px ' + FONT;
+      ctx.fillText(ts.line, cx, ty0 + tch * 0.9);
+    } else if (nearest) {
       var p = nearest.p, cw = R * 0.84, ch = R * 0.23, x0 = cx - cw / 2, y0 = cy + R * 0.64;
       ctx.fillStyle = 'rgba(3,9,13,.72)';
       roundRect(x0, y0, cw, ch, u * 2); ctx.fill();
@@ -632,11 +694,12 @@
     CFG.rangeIdx = (i + CFG.ranges.length) % CFG.ranges.length;
     try { localStorage.setItem('overhead-radar-range', String(CFG.rangeIdx)); } catch (e) { /* ignore */ }
   }
-  var picking = false, hitTargets = [], selectedHex = null, nearestHex = null;
+  var picking = false, hitTargets = [], selectedHex = null, nearestHex = null, trackCardRect = null, track = null;
   canvas.addEventListener('click', function (e) {
     if (!picking) {
       // tap a plane to open its details
       var rc = canvas.getBoundingClientRect(), tx = e.clientX - rc.left, ty = e.clientY - rc.top, best = null, bestD = Math.max(22, S * 0.06);
+      if (trackCardRect && tx >= trackCardRect[0] && tx <= trackCardRect[2] && ty >= trackCardRect[1] && ty <= trackCardRect[3]) { openProgress(); return; }
       hitTargets.forEach(function (h) { var d = Math.hypot(h.x - tx, h.y - ty); if (d < bestD) { bestD = d; best = h; } });
       if (best) openDetail(best.hex); else selectedHex = null;
       return;
@@ -652,6 +715,9 @@
     if (!panel.hidden) { if (e.key === 'Escape') closeSettings(); return; }
     if (!placesPanel.hidden) { if (e.key === 'Escape' || e.key === 'l' || e.key === 'L') closePlaces(); return; }
     if (!detail.hidden) { if (e.key === 'Escape' || e.key === 'Enter') closeDetail(); return; }
+    if (!trackPanel.hidden) { if (e.key === 'Escape') trackPanel.hidden = true; return; }
+    if (!progress.hidden) { if (e.key === 'Escape' || e.key === 'Enter') closeProgress(); return; }
+    if (e.key === 't' || e.key === 'T') { e.preventDefault(); openTrackPanel(); return; }
     if (e.key === 'Escape') { picking = false; selectedHex = null; }
     if (e.key === 's' || e.key === 'S') { e.preventDefault(); openSettings(); }
     if (e.key === 'l' || e.key === 'L') { e.preventDefault(); openPlaces(); }
@@ -745,11 +811,14 @@
     EAI32D: ['Emerald Airlines', 'EINN', 'SNN', 'Shannon', 'EGBB', 'BHX', 'Birmingham', 'ATR', '72-600'],
     EIBCF: ['Private', '', '', '', '', '', '', 'Cessna', '172 Skyhawk']
   };
+  var DEMO_AIRPORTS = { DUB: [53.4213, -6.2701], ATL: [33.6407, -84.4277], EWR: [40.6895, -74.1745], JFK: [40.6413, -73.7781],
+    LHR: [51.4700, -0.4543], YYZ: [43.6777, -79.6248], MAD: [40.4983, -3.5676], NOC: [53.9103, -8.8185], SNN: [52.7020, -8.9248], BHX: [52.4539, -1.7480] };
   function demoInfo(p) {
     var d = DEMO_INFO[p.flight];
     if (!d) return {};
     return { demo: true, aircraft: { owner: d[0], manufacturer: d[7], type: d[8], registration: p.reg, type_code: p.type },
-             route: d[1] ? { origin: { icao: d[1], iata: d[2], name: d[3] }, destination: { icao: d[4], iata: d[5], name: d[6] } } : null };
+             route: d[1] ? { origin: { icao: d[1], iata: d[2], name: d[3], lat: DEMO_AIRPORTS[d[2]][0], lon: DEMO_AIRPORTS[d[2]][1] },
+                             destination: { icao: d[4], iata: d[5], name: d[6], lat: DEMO_AIRPORTS[d[5]][0], lon: DEMO_AIRPORTS[d[5]][1] } } : null };
   }
 
   function loadInfo(p) {
@@ -797,6 +866,7 @@
         img.src = ph.src;
         credits.push('Photo © ' + (ph.photographer || 'unknown') + ' · planespotters.net');
       }
+      if (p.via === 'receiver') credits.unshift('Heard by your antenna');
       if (info.demo) credits.push('Demo data');
       else if (rt) credits.push('Route: hexdb.io, may be out of date');
       dEl.credit.textContent = credits.join('  ·  ');
@@ -816,6 +886,205 @@
   }
   document.getElementById('d-close').addEventListener('click', closeDetail);
   detail.addEventListener('click', function (e) { if (e.target === detail) closeDetail(); });
+
+  // ---------- flight tracking ----------
+  // IATA airline code -> ICAO callsign prefix, so "EI105" also finds "EIN105".
+  var AIRLINES = { EI: 'EIN', FR: 'RYR', BA: 'BAW', AA: 'AAL', DL: 'DAL', UA: 'UAL', AC: 'ACA', LH: 'DLH', AF: 'AFR', KL: 'KLM',
+    U2: 'EZY', W6: 'WZZ', VS: 'VIR', EK: 'UAE', QR: 'QTR', EY: 'ETD', TK: 'THY', IB: 'IBE', VY: 'VLG', SK: 'SAS', AY: 'FIN',
+    LX: 'SWR', OS: 'AUA', SN: 'BEL', TP: 'TAP', LS: 'EXS', LM: 'LOG', B6: 'JBU', WS: 'WJA', TS: 'TSC', FI: 'ICE', DY: 'NOZ',
+    D8: 'IBK', SQ: 'SIA', CX: 'CPA', ET: 'ETH', AI: 'AIC', QF: 'QFA', AS: 'ASA', WN: 'SWA', EW: 'EWG', BY: 'TOM', MT: 'TCX', AZ: 'ITY' };
+  var TRACK_KEY = 'overhead-radar-track', RECENT_KEY = 'overhead-radar-track-recent', trackTimer = null, progressTimer = null;
+  var trackPanel = document.getElementById('track-panel'), progress = document.getElementById('progress');
+  var tEl = {}; ['query', 'err', 'recent', 'call', 'route', 'map', 'bar', 'pct', 'stats', 'status'].forEach(function (k) { tEl[k] = document.getElementById('t-' + k); });
+
+  function normQuery(q) { return String(q || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
+  function callsignCandidates(q) {
+    q = normQuery(q);
+    var out = [q], m = q.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/);
+    if (m && AIRLINES[m[1]]) out.unshift(AIRLINES[m[1]] + m[2].replace(/^0+(?=\d)/, ''));
+    return out;
+  }
+  function isTracked(p) { return !!track && (track.cands.indexOf(p.flight) >= 0 || p.flight === track.cs); }
+  function haversineNm(a, b) {
+    var dLat = (b[0] - a[0]) * D2R, dLon = (b[1] - a[1]) * D2R;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * 3440.065 * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+  function gcPoints(a, b, n) {
+    // points along the great circle from a to b (lat/lon degrees)
+    var toV = function (p) { var la = p[0] * D2R, lo = p[1] * D2R; return [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)]; };
+    var A = toV(a), B = toV(b), dot = Math.max(-1, Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2])), w = Math.acos(dot), out = [];
+    for (var i = 0; i <= n; i++) {
+      var t = i / n, s1 = w ? Math.sin((1 - t) * w) / Math.sin(w) : 1 - t, s2 = w ? Math.sin(t * w) / Math.sin(w) : t;
+      var v = [s1 * A[0] + s2 * B[0], s1 * A[1] + s2 * B[1], s1 * A[2] + s2 * B[2]];
+      out.push([Math.atan2(v[2], Math.hypot(v[0], v[1])) / D2R, Math.atan2(v[1], v[0]) / D2R]);
+    }
+    return out;
+  }
+
+  // Current best position of the tracked flight: the live radar if it's in range, else the network's last fix.
+  function trackState(now) {
+    var live = null;
+    planes.forEach(function (p) { if (!live && isTracked(p) && !p.ground) live = p; });
+    if (live) {
+      var xy = posNow(live, now), ll = fromXY(xy[0], xy[1]);
+      return { lat: ll[0], lon: ll[1], alt: live.alt, gs: live.gs, trk: live.track, vr: live.vr, p: live, age: (now - live.fixT) / 1000, flight: live.flight };
+    }
+    if (track.ac) {
+      var a = track.ac, age = (now - track.fixAt) / 1000;
+      var d = a.gs && a.track != null ? a.gs * Math.min(age, 120) / 3600 : 0; // dead-reckon up to 2 minutes
+      var lat = a.lat + d * Math.cos(a.track * D2R) / 60, lon = a.lon + d * Math.sin(a.track * D2R) / (60 * Math.cos(a.lat * D2R));
+      return { lat: lat, lon: lon, alt: a.alt, gs: a.gs, trk: a.track, vr: a.vr, p: null, age: age, flight: a.flight };
+    }
+    return null;
+  }
+  function trackProgress(st) {
+    var r = track.route;
+    if (!st || !r || !r.origin || !r.destination || r.origin.lat == null || r.destination.lat == null) return null;
+    var o = [r.origin.lat, r.origin.lon], d = [r.destination.lat, r.destination.lon], pos = [st.lat, st.lon];
+    var flown = haversineNm(o, pos), rem = haversineNm(pos, d), total = haversineNm(o, d);
+    var pct = Math.max(0, Math.min(1, flown / Math.max(1, flown + rem)));
+    var eta = st.gs > 60 ? Date.now() + rem / st.gs * 3600 * 1000 : null;
+    return { flown: flown, rem: rem, total: total, pct: pct, eta: eta };
+  }
+  function hhmm(ms) { var d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function routeText(r) { return r && r.origin && r.destination ? (r.origin.iata || r.origin.icao) + ' → ' + (r.destination.iata || r.destination.icao) : ''; }
+
+  function trackSummary(now) {
+    var st = trackState(now), pr = trackProgress(st), name = (st && st.flight) || track.cs || track.query;
+    var title = name + (routeText(track.route) ? '  ' + routeText(track.route) : '');
+    if (!st) return { label: 'TRACKING', title: title, pct: null, warn: true, line: track.polled ? 'Not found in the air yet' : 'Searching…' };
+    var lost = st.age > 120;
+    var line = pr ? Math.round(pr.pct * 100) + '% · ' + Math.round(pr.rem).toLocaleString() + ' nm to go' + (pr.eta && !lost ? ' · ETA ' + hhmm(pr.eta) : '')
+                  : altText({ alt: st.alt }) + ' · ' + Math.round(st.gs || 0) + ' kt · route unknown';
+    if (lost) line = 'Out of coverage · last seen ' + Math.round(st.age / 60) + ' min ago';
+    return { label: st.p ? 'TRACKING · ON RADAR' : 'TRACKING', title: title, pct: pr ? pr.pct : null, warn: lost, line: line };
+  }
+
+  function recentFlights() { try { var a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(a) ? a.slice(0, 6) : []; } catch (e) { return []; } }
+  function startTracking(q) {
+    q = normQuery(q);
+    if (!q) return;
+    track = { query: q, cands: callsignCandidates(q), cs: null, ac: null, route: null, fixAt: 0, polled: false };
+    try {
+      localStorage.setItem(TRACK_KEY, q);
+      localStorage.setItem(RECENT_KEY, JSON.stringify([q].concat(recentFlights().filter(function (x) { return x !== q; })).slice(0, 6)));
+    } catch (e) { /* ignore */ }
+    pollTrack();
+  }
+  function stopTracking() {
+    track = null; clearTimeout(trackTimer);
+    try { localStorage.removeItem(TRACK_KEY); } catch (e) { /* ignore */ }
+    closeProgress();
+  }
+  function pollTrack() {
+    clearTimeout(trackTimer);
+    if (!track) return;
+    var t = track;
+    var done = function () { t.polled = true; if (track === t) trackTimer = setTimeout(pollTrack, 15000); };
+    if (status.source === 'DEMO') {
+      var found = null;
+      planes.forEach(function (p) { if (!found && isTracked(p)) found = p; });
+      if (found) { t.cs = found.flight; var di = demoInfo(found); t.route = di.route || null; }
+      done();
+      return;
+    }
+    fetchJSON('api/track?flight=' + encodeURIComponent(t.query)).then(function (j) {
+      if (track !== t) return;
+      if (j.callsign) { t.cs = j.callsign; if (t.cands.indexOf(j.callsign) < 0) t.cands.push(j.callsign); }
+      if (j.aircraft) { t.ac = j.aircraft; t.fixAt = Date.now() - (j.aircraft.seen || 0) * 1000; }
+      if (j.route) t.route = j.route;
+    }).catch(function () { /* keep the last known state */ }).then(done);
+  }
+
+  function openTrackPanel(prefill) {
+    tEl.query.value = prefill || (track ? track.query : '');
+    tEl.err.textContent = '';
+    tEl.recent.innerHTML = '';
+    recentFlights().forEach(function (q) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = q;
+      b.addEventListener('click', function () { trackPanel.hidden = true; startTracking(q); openProgress(); });
+      tEl.recent.appendChild(b);
+    });
+    trackPanel.hidden = false;
+    tEl.query.focus();
+  }
+  document.getElementById('track-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = normQuery(tEl.query.value);
+    if (!/^[A-Z0-9]{3,8}$/.test(q)) { tEl.err.textContent = 'Enter a flight number like EI105 or a callsign like EIN105.'; return; }
+    trackPanel.hidden = true;
+    startTracking(q);
+    openProgress();
+  });
+  document.getElementById('t-cancel').addEventListener('click', function () { trackPanel.hidden = true; });
+  trackPanel.addEventListener('click', function (e) { if (e.target === trackPanel) trackPanel.hidden = true; });
+  document.getElementById('track-btn').addEventListener('click', function () { if (track) openProgress(); else openTrackPanel(); });
+  document.getElementById('t-stop').addEventListener('click', stopTracking);
+  document.getElementById('t-close').addEventListener('click', closeProgress);
+  progress.addEventListener('click', function (e) { if (e.target === progress) closeProgress(); });
+  document.getElementById('d-track').addEventListener('click', function () {
+    var p = planes.get(selectedHex); if (!p) return;
+    closeDetail(); startTracking(p.flight); openProgress();
+  });
+
+  function openProgress() { if (!track) return; progress.hidden = false; updateProgress(); clearInterval(progressTimer); progressTimer = setInterval(updateProgress, 1000); }
+  function closeProgress() { progress.hidden = true; clearInterval(progressTimer); }
+  function updateProgress() {
+    if (!track) return closeProgress();
+    var now = Date.now(), st = trackState(now), pr = trackProgress(st), r = track.route;
+    tEl.call.textContent = (st && st.flight) || track.cs || track.query;
+    tEl.route.innerHTML = r && r.origin && r.destination
+      ? '<b>' + esc(r.origin.iata || r.origin.icao) + '</b> → <b>' + esc(r.destination.iata || r.destination.icao) + '</b><small>' + esc(r.origin.name || '') + ' to ' + esc(r.destination.name || '') + '</small>'
+      : '<small>' + (track.polled ? 'Route not known' : 'Looking up…') + '</small>';
+    tEl.bar.style.width = pr ? (pr.pct * 100).toFixed(1) + '%' : '0';
+    tEl.pct.textContent = pr ? Math.round(pr.pct * 100) + '% complete' : '';
+    var cells = st ? [['FLOWN', pr ? Math.round(pr.flown).toLocaleString() + ' nm' : '—'], ['TO GO', pr ? Math.round(pr.rem).toLocaleString() + ' nm' : '—'],
+                      ['ETA', pr && pr.eta && st.age < 120 ? hhmm(pr.eta) + ' est.' : '—'], ['ALT', altText({ alt: st.alt }) + vrArrow(st.vr)],
+                      ['SPEED', Math.round(st.gs || 0) + ' kt'], ['TOTAL', pr ? Math.round(pr.total).toLocaleString() + ' nm' : '—']] : [];
+    tEl.stats.innerHTML = cells.map(function (c) { return '<div><span>' + c[0] + '</span><b>' + esc(c[1]) + '</b></div>'; }).join('');
+    tEl.status.textContent = !st ? (track.polled ? 'Not airborne, or not covered by the network right now. Checking every 15 s.' : 'Searching…')
+      : st.age > 120 ? 'Out of coverage (oceanic gaps are normal). Last seen ' + Math.round(st.age / 60) + ' min ago.'
+      : st.p ? 'On your radar now.' : '';
+    drawTrackMap(st);
+  }
+  function drawTrackMap(st) {
+    var c = tEl.map, g = c.getContext('2d'), W = c.width, H = c.height, r = track.route;
+    g.clearRect(0, 0, W, H);
+    var pts = [];
+    var home = [CFG.lat, CFG.lon];
+    if (r && r.origin && r.destination && r.origin.lat != null && r.destination.lat != null) pts = gcPoints([r.origin.lat, r.origin.lon], [r.destination.lat, r.destination.lon], 64);
+    var all = pts.slice(); if (st) all.push([st.lat, st.lon]); if (!all.length) all.push(home);
+    var midLat = all.reduce(function (s, p) { return s + p[0]; }, 0) / all.length, kx = Math.cos(midLat * D2R);
+    var xs = all.map(function (p) { return p[1] * kx; }), ys = all.map(function (p) { return p[0]; });
+    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+    var pad = 28, sc = Math.min((W - 2 * pad) / Math.max(maxX - minX, 0.5), (H - 2 * pad) / Math.max(maxY - minY, 0.5));
+    var ox = (W - (maxX - minX) * sc) / 2, oy = (H - (maxY - minY) * sc) / 2;
+    var P = function (p) { return [ox + (p[1] * kx - minX) * sc, H - oy - (p[0] - minY) * sc]; };
+    g.lineWidth = 3; g.lineCap = 'round';
+    if (pts.length) {
+      var split = pts.length - 1;
+      if (st) { var best = 1e9; pts.forEach(function (p, i) { var d = haversineNm(p, [st.lat, st.lon]); if (d < best) { best = d; split = i; } }); }
+      g.strokeStyle = '#2c5568'; g.setLineDash([6, 6]); g.beginPath();
+      pts.slice(split).forEach(function (p, i) { var q = P(p); g[i ? 'lineTo' : 'moveTo'](q[0], q[1]); }); g.stroke(); g.setLineDash([]);
+      g.strokeStyle = '#7dd3fc'; g.beginPath();
+      pts.slice(0, split + 1).forEach(function (p, i) { var q = P(p); g[i ? 'lineTo' : 'moveTo'](q[0], q[1]); }); g.stroke();
+      g.font = '600 20px ui-monospace, monospace'; g.fillStyle = '#d8e6ee'; g.textBaseline = 'middle';
+      [[r.origin, pts[0]], [r.destination, pts[pts.length - 1]]].forEach(function (e, i) {
+        var q = P(e[1]); g.beginPath(); g.arc(q[0], q[1], 6, 0, Math.PI * 2); g.fill();
+        g.textAlign = q[0] > W / 2 ? 'right' : 'left'; g.fillText(e[0].iata || e[0].icao, q[0] + (q[0] > W / 2 ? -12 : 12), q[1] + (i ? 16 : -16));
+      });
+    }
+    var hq = P(home);
+    if (hq[0] > 0 && hq[0] < W && hq[1] > 0 && hq[1] < H) { g.strokeStyle = '#ffb547'; g.lineWidth = 2; g.beginPath(); g.moveTo(hq[0] - 6, hq[1]); g.lineTo(hq[0] + 6, hq[1]); g.moveTo(hq[0], hq[1] - 6); g.lineTo(hq[0], hq[1] + 6); g.stroke(); }
+    if (st) {
+      var sp = P([st.lat, st.lon]);
+      g.save(); g.translate(sp[0], sp[1]); g.rotate((st.trk || 0) * D2R); g.beginPath();
+      PLANE.forEach(function (q, i) { g[i ? 'lineTo' : 'moveTo'](q[0] * 16, q[1] * 16); });
+      for (var i = PLANE.length - 2; i > 0; i--) g.lineTo(-PLANE[i][0] * 16, PLANE[i][1] * 16);
+      g.closePath(); g.fillStyle = st.age > 120 ? '#ffb547' : '#ffffff'; g.fill(); g.restore();
+    }
+  }
 
   // ---------- aircraft type outlines (top view, nose up) ----------
   function typeCategory(t, cat) {
@@ -910,7 +1179,7 @@
   });
 
   // controls sit just inside the scope edge: zoom at 4 and 8 o'clock, places and settings either side of the nearest card
-  var CONTROLS = [['zoom-out', 245, 0.8], ['zoom-in', 115, 0.8], ['places-btn', 224, 0.83], ['gear', 136, 0.83]];
+  var CONTROLS = [['zoom-out', 245, 0.8], ['zoom-in', 115, 0.8], ['places-btn', 224, 0.83], ['gear', 136, 0.83], ['track-btn', 300, 0.8]];
   function placeControls() {
     CONTROLS.forEach(function (c) {
       var el = document.getElementById(c[0]), r = S / 2 * 0.94 * c[2], a = c[1] * D2R;
@@ -924,6 +1193,7 @@
   // ---------- start ----------
   var serverCentre = null;
   buildGeo();
+  try { var savedTrack = localStorage.getItem(TRACK_KEY); if (savedTrack) setTimeout(function () { startTracking(savedTrack); }, 1500); } catch (e) { /* ignore */ }
   requestAnimationFrame(frame);
   if (CFG.demo) { startDemo(); return; }
   fetchJSON('api/config').then(function (c) {
