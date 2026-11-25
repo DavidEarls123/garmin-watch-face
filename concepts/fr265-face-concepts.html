@@ -1,0 +1,467 @@
+<title>FR265 Face Concepts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap">
+<style>
+/* Layout: a field catalogue of watch-face concepts. Each face sits in a bezel, spec notes beside it; reference tables below. Single dark look, like the watch itself. */
+:root {
+  --bg: #0e1014;
+  --panel: #161920;
+  --line: #262a33;
+  --fg: #e9ebf0;
+  --muted: #98a0ad;
+  --accent: #ff4d6d;
+  --amber: #ffb547;
+  --vfr: #3ddc84;
+  --ifr: #ff5a5a;
+  --blue: #4da3ff;
+  --display: 'Chakra Petch', 'Arial Narrow', sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; }
+header { padding-block: 48px 28px; display: grid; gap: 12px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 6vw, 56px); line-height: 1.02; margin: 0; text-wrap: balance; }
+h1 em { font-style: italic; color: var(--accent); }
+.lede { max-width: 66ch; color: var(--muted); margin: 0; }
+h2 { font-family: var(--display); font-size: 28px; margin: 0; text-wrap: balance; }
+section { padding-block: 40px 8px; display: grid; gap: 20px; }
+.section-head { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 28px; }
+.section-head p { margin: 0; color: var(--muted); max-width: 70ch; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr)); gap: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 560px) { .card { grid-template-columns: 1fr; justify-items: center; } .card .info { justify-self: stretch; } }
+.bezel { width: 200px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; background: #000; padding: 9px; box-shadow: 0 0 0 2px #2c3038, 0 0 0 8px #15171b, 0 0 0 9px #2c3038, 0 10px 30px rgba(0,0,0,.5); }
+.bezel svg { width: 100%; height: 100%; display: block; border-radius: 50%; }
+.info { display: grid; gap: 8px; min-width: 0; }
+.info h3 { font-family: var(--display); font-size: 21px; margin: 0; display: flex; gap: 10px; align-items: baseline; }
+.info h3 .n { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 400; }
+.info p { margin: 0; font-size: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.chip.phone { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 40%, transparent); }
+.chip.easy { color: var(--vfr); border-color: color-mix(in srgb, var(--vfr) 40%, transparent); }
+.chip.med { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+.chip.hard { color: var(--ifr); border-color: color-mix(in srgb, var(--ifr) 40%, transparent); }
+dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13px; }
+dt { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding-top: 2px; }
+dd { margin: 0; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 400; background: var(--panel); }
+tr:last-child td { border-bottom: 0; }
+td.group { font-family: var(--display); font-weight: 600; color: var(--amber); background: #12141a; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.v { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.v.yes { color: var(--vfr); } .v.part { color: var(--amber); } .v.no { color: var(--ifr); }
+
+.extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+.extra { border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 4px; align-content: start; }
+.extra h4 { margin: 0; font-family: var(--display); font-size: 17px; }
+.extra p { margin: 0; font-size: 14px; color: var(--muted); }
+
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.node { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--panel); display: grid; gap: 4px; min-width: 0; }
+.node b { font-family: var(--display); font-size: 16px; }
+.node span { font-size: 13px; color: var(--muted); }
+.arrow { align-self: center; color: var(--muted); font-family: var(--mono); }
+@media (max-width: 760px) { .arrow { display: none; } }
+ul.limits { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 75ch; }
+.note { font-size: 13px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Forerunner 265 · 416 × 416 AMOLED · Connect IQ</div>
+  <h1>Ten faces for a runner, golfer, pilot and <em>United</em> fan</h1>
+  <p class="lede">Concept mock-ups drawn at the watch's real resolution. Each one lists the data it shows and whether that data comes from the watch itself or from the internet through your phone. All numbers are sample values for Wednesday 25 November, and the fixture shown is made up.</p>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2>The ten layouts</h2>
+    <p>Pick one or two to build, or mix parts. The phone-data parts work on any of the layouts.</p>
+  </div>
+  <div class="grid">
+
+    <article class="card"><div class="bezel" data-face="hero"></div><div class="info">
+      <h3><span class="n">01</span>Split Hero</h3>
+      <p>Your current face, evolved. Outlined hour, gradient-filled minutes, a goal arc, and a line of custom data at the bottom.</p>
+      <div class="chips"><span class="chip easy">Easy</span><span class="chip phone">Optional phone data</span></div>
+      <dl><dt>Shows</dt><dd>Calories arc, date, battery, HR, Body Battery, steps, next United match</dd>
+      <dt>Always-on</dt><dd>Outline digits only on black</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="sixpack"></div><div class="info">
+      <h3><span class="n">02</span>Six-Pack</h3>
+      <p>Six round needle gauges around the time, styled like a light aircraft's instrument panel. Each gauge is set from the phone.</p>
+      <div class="chips"><span class="chip med">Medium</span><span class="chip">Built-in data</span></div>
+      <dl><dt>Shows</dt><dd>HR, battery, steps, wind, stress, Body Battery</dd>
+      <dt>Always-on</dt><dd>Time plus needle outlines</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="metar"></div><div class="info">
+      <h3><span class="n">03</span>Flight Category</h3>
+      <p>The outer ring turns green, blue, red or magenta for VFR, MVFR, IFR or LIFR at your chosen airfield. Shows the decoded METAR and the crosswind on your runway.</p>
+      <div class="chips"><span class="chip med">Medium</span><span class="chip phone">Phone data</span></div>
+      <dl><dt>Shows</dt><dd>Live METAR, wind arrow, QNH, crosswind, sunset and UK night (sunset +30 min)</dd>
+      <dt>Always-on</dt><dd>Time with a thin ring in the category colour</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="match"></div><div class="info">
+      <h3><span class="n">04</span>Matchday</h3>
+      <p>Red and black with a gold trim. The next fixture with a countdown ring, plus recent form. When a match is on, the fixture becomes the live score and minute.</p>
+      <div class="chips"><span class="chip med">Medium</span><span class="chip phone">Phone data</span></div>
+      <dl><dt>Shows</dt><dd>Next opponent, kick-off, countdown, last five results, live score</dd>
+      <dt>Always-on</dt><dd>Time and score only</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="board"></div><div class="info">
+      <h3><span class="n">05</span>Departure Board</h3>
+      <p>An airport split-flap board. Each row is a slot you choose. The flaps can do a quick flip animation when you raise your wrist.</p>
+      <div class="chips"><span class="chip med">Medium</span><span class="chip phone">Optional phone data</span></div>
+      <dl><dt>Shows</dt><dd>Time, date, next match, flight category, HR, Body Battery, sunset</dd>
+      <dt>Always-on</dt><dd>Time row only, dimmed</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="fairway"></div><div class="info">
+      <h3><span class="n">06</span>Fairway</h3>
+      <p>Mown-stripe green with a pin flag. Built around golf-day questions: how windy is it, and how much daylight is left?</p>
+      <div class="chips"><span class="chip easy">Easy</span><span class="chip">Built-in weather</span></div>
+      <dl><dt>Shows</dt><dd>Wind arrow and speed, daylight left, temperature, handicap (entered in settings), steps</dd>
+      <dt>Always-on</dt><dd>Time and daylight left</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="train"></div><div class="info">
+      <h3><span class="n">07</span>Training Block</h3>
+      <p>A running and gym dashboard. The big arc is weekly distance against your target, and the inner arc is intensity minutes.</p>
+      <div class="chips"><span class="chip med">Medium</span><span class="chip">Built-in data</span></div>
+      <dl><dt>Shows</dt><dd>Weekly km, intensity minutes, VO2 max, recovery hours, 5K prediction</dd>
+      <dt>Always-on</dt><dd>Time and weekly km</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="radar"></div><div class="info">
+      <h3><span class="n">08</span>Radar</h3>
+      <p>A green radar scope. The sweep line is the second hand, and your stats appear as blips on the screen.</p>
+      <div class="chips"><span class="chip med">Medium</span><span class="chip">Built-in data</span></div>
+      <dl><dt>Shows</dt><dd>Time, HR, Body Battery, steps, battery, days to the next match</dd>
+      <dt>Always-on</dt><dd>Rings and time, no sweep</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="rings"></div><div class="info">
+      <h3><span class="n">09</span>Ring Stack</h3>
+      <p>The calm option. Four thin progress rings and a light-weight time. The easiest to read mid-run.</p>
+      <div class="chips"><span class="chip easy">Easy</span><span class="chip">Built-in data</span></div>
+      <dl><dt>Shows</dt><dd>Calories, steps, intensity minutes, Body Battery</dd>
+      <dt>Always-on</dt><dd>Time only. The best for battery life.</dd></dl>
+    </div></article>
+
+    <article class="card"><div class="bezel" data-face="adi"></div><div class="info">
+      <h3><span class="n">10</span>Attitude</h3>
+      <p>An artificial horizon. The sky/ground line rises and falls with Body Battery, and the bank angle can follow stress.</p>
+      <div class="chips"><span class="chip hard">Involved</span><span class="chip">Built-in data</span></div>
+      <dl><dt>Shows</dt><dd>Body Battery as the horizon, stress as bank, HR, battery, date</dd>
+      <dt>Always-on</dt><dd>Horizon line and time in outline</dd></dl>
+    </div></article>
+
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>Beyond the standard data</h2>
+    <p>A watch face can fetch from the internet through a background task. It runs at most every 5 minutes, via the Garmin Connect app on your phone. Here's what's realistic for your interests.</p>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Item</th><th>Possible?</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td colspan="3" class="group">Flying</td></tr>
+      <tr><td>METAR for your airfield, decoded</td><td class="v yes">Yes</td><td>aviationweather.gov has a free JSON API with no key. You set the ICAO code (e.g. EGCC) in the phone settings.</td></tr>
+      <tr><td>Flight category colour (VFR / MVFR / IFR / LIFR)</td><td class="v yes">Yes</td><td>Comes with the METAR, or is worked out from ceiling and visibility.</td></tr>
+      <tr><td>Crosswind and headwind for your runway</td><td class="v yes">Yes</td><td>Calculated on the watch from METAR wind and a runway heading you enter.</td></tr>
+      <tr><td>Density altitude</td><td class="v yes">Yes</td><td>From METAR temperature, QNH and field elevation.</td></tr>
+      <tr><td>Sunset, civil twilight, UK night (sunset +30 min)</td><td class="v yes">Yes</td><td>Calculated on the watch. No internet needed.</td></tr>
+      <tr><td>TAF headline (e.g. "BECMG IFR 14Z")</td><td class="v part">Partly</td><td>Same source. The full text is too long, so it would show only the next change.</td></tr>
+      <tr><td>NOTAMs, airspace warnings</td><td class="v no">No</td><td>The text is long and the APIs need logins. Better kept on your EFB.</td></tr>
+      <tr><td colspan="3" class="group">Manchester United and football</td></tr>
+      <tr><td>Next fixture, kick-off, countdown</td><td class="v yes">Yes</td><td>football-data.org has a free API key that includes the Premier League. It only needs checking once or twice a day.</td></tr>
+      <tr><td>Live score and match minute</td><td class="v part">Delayed</td><td>Refreshes every 5 minutes while a match is on, so goals can show up a few minutes late.</td></tr>
+      <tr><td>League position, points, last five results</td><td class="v yes">Yes</td><td>Same API.</td></tr>
+      <tr><td>Other Premier League scores</td><td class="v part">Partly</td><td>Possible, cycling one match at a time. Space is tight.</td></tr>
+      <tr><td>Vibrate when United score</td><td class="v no">No</td><td>Watch faces aren't allowed to vibrate. A separate widget could, but only while you have it open.</td></tr>
+      <tr><td colspan="3" class="group">Golf</td></tr>
+      <tr><td>Wind, temperature, daylight left</td><td class="v yes">Yes</td><td>Built-in Garmin weather and sun calculations.</td></tr>
+      <tr><td>Handicap</td><td class="v yes">Yes</td><td>A number you type into the face's settings.</td></tr>
+      <tr><td>Course yardages, GPS to the green</td><td class="v no">No</td><td>Faces can't use GPS. That needs a full Connect IQ golf app, which the FR265 doesn't have built in.</td></tr>
+      <tr><td colspan="3" class="group">Running and gym</td></tr>
+      <tr><td>HR, steps, calories, intensity minutes, Body Battery, stress</td><td class="v yes">Yes</td><td>Standard watch data.</td></tr>
+      <tr><td>Recovery time, VO2 max, race predictor, weekly run distance</td><td class="v part">Likely</td><td>Comes through Garmin "complications". Exactly which ones the FR265 exposes needs checking in the simulator.</td></tr>
+      <tr><td>Training readiness, HRV status</td><td class="v part">Check</td><td>Not always available to third-party faces. Needs testing.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>Fun extras</h2>
+    <p>Small touches that can go on any of the layouts.</p>
+  </div>
+  <div class="extras">
+    <div class="extra"><h4>Matchday takeover</h4><p>From two hours before kick-off, any layout switches to the Matchday face. It switches back at full time.</p></div>
+    <div class="extra"><h4>Fergie time</h4><p>After 90 minutes the live clock shows stoppage time as 90+3, 90+4…</p></div>
+    <div class="extra"><h4>Result tint</h4><p>The accent colour glows red the day after a win and goes grey after a loss. It can be turned off.</p></div>
+    <div class="extra"><h4>Go / no-go light</h4><p>A small green or red dot shows whether the weather is within your own limits: category, wind and crosswind you set.</p></div>
+    <div class="extra"><h4>Daylight left</h4><p>A countdown to sunset, which suits golf and VFR flying. It turns amber in the last hour.</p></div>
+    <div class="extra"><h4>Heartbeat seconds</h4><p>The seconds ring pulses at your actual heart rate while you're looking at the watch.</p></div>
+    <div class="extra"><h4>Tap-through slots</h4><p>Tapping a slot opens the related Garmin glance, e.g. HR, Body Battery or weather.</p></div>
+    <div class="extra"><h4>Colour themes</h4><p>Pick presets from the phone: United red, Neon (like your current face), Cockpit amber, Fairway green.</p></div>
+    <div class="extra"><h4>Moon phase</h4><p>Calculated on the watch, which helps when planning a night flight.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>How live data reaches the watch</h2>
+    <p>This is how the METAR and the football scores arrive.</p>
+  </div>
+  <div class="flow">
+    <div class="node"><b>Public API</b><span>aviationweather.gov, football-data.org</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>Small proxy (recommended)</b><span>A free Cloudflare Worker. It hides your API key and shrinks the replies to a few bytes so they fit in the watch's memory.</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>Phone</b><span>The Garmin Connect app relays the request over Bluetooth.</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>Face background task</b><span>Runs every 5 minutes or more and saves the result for the face to draw.</span></div>
+  </div>
+  <ul class="limits">
+    <li>Without your phone nearby, the face shows the last data it got, with its age (e.g. "METAR 47 min old").</li>
+    <li>Watch faces have tight memory limits, so each fetch should return just the few values needed.</li>
+    <li>The always-on mode on AMOLED has to stay mostly black, so every layout above has a simpler sleep version.</li>
+  </ul>
+</section>
+<p class="note">Concept mock-ups only. All values are sample data, and the fixture shown is made up. These mock-ups use no club crest or logo.</p>
+</div>
+
+<script>
+(function () {
+  var C = 208;
+  var F = { d: "'Chakra Petch', 'Arial Narrow', sans-serif", m: "'IBM Plex Mono', ui-monospace, monospace", b: "'IBM Plex Sans', system-ui, sans-serif" };
+  function pt(cx, cy, r, a) { var t = (a - 90) * Math.PI / 180; return [(cx + r * Math.cos(t)).toFixed(1), (cy + r * Math.sin(t)).toFixed(1)]; }
+  function arc(cx, cy, r, a0, a1) {
+    var p0 = pt(cx, cy, r, a0), p1 = pt(cx, cy, r, a1);
+    var large = (a1 - a0) > 180 ? 1 : 0;
+    return 'M' + p0[0] + ' ' + p0[1] + ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' + p1[0] + ' ' + p1[1];
+  }
+  function P(d, stroke, w, extra) { return '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-width="' + w + '" stroke-linecap="round" ' + (extra || '') + '/>'; }
+  function T(x, y, s, o) {
+    o = o || {};
+    return '<text x="' + x + '" y="' + y + '" font-family="' + (o.f || F.d) + '" font-size="' + (o.s || 20) + '" font-weight="' + (o.w || 600) +
+      '" fill="' + (o.c || '#fff') + '" text-anchor="' + (o.a || 'middle') + '"' + (o.ls ? ' letter-spacing="' + o.ls + '"' : '') +
+      (o.i ? ' font-style="italic"' : '') + ' ' + (o.x || '') + '>' + s + '</text>';
+  }
+  function wrap(id, defs, body, label) {
+    return '<svg viewBox="0 0 416 416" role="img" aria-label="' + label + '"><defs><clipPath id="clip-' + id + '"><circle cx="208" cy="208" r="208"/></clipPath>' + defs +
+      '</defs><g clip-path="url(#clip-' + id + ')">' + body + '</g></svg>';
+  }
+
+  var faces = {};
+
+  faces.hero = function () {
+    var defs = '<linearGradient id="h-dig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd2b0"/><stop offset="1" stop-color="#ff2e63"/></linearGradient>' +
+      '<linearGradient id="h-arc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff2e63"/><stop offset="1" stop-color="#2f7bff"/></linearGradient>' +
+      '<pattern id="h-str" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)"><rect width="9" height="9" fill="#0a1230"/><line x1="0" y1="0" x2="0" y2="9" stroke="#15214a" stroke-width="3"/></pattern>';
+    var b = '<rect width="416" height="416" fill="url(#h-str)"/>';
+    b += P(arc(C, C, 186, -60, 60), '#1b2856', 12) + P(arc(C, C, 186, -60, 22), 'url(#h-arc)', 12);
+    b += T(208, 82, '958 KCAL', { s: 20, f: F.b, c: '#fff', w: 600 });
+    b += T(130, 205, '09', { s: 132, w: 700, i: 1, c: 'none', x: 'stroke="url(#h-dig)" stroke-width="3"' });
+    b += T(290, 205, '16', { s: 132, w: 700, i: 1, c: 'url(#h-dig)' });
+    b += T(112, 252, 'Wed 25', { s: 24, f: F.b }) + T(306, 252, '93%', { s: 24, f: F.b });
+    [[128, 'HR', '59'], [208, 'BODY', '72'], [288, 'STEPS', '881']].forEach(function (s) {
+      b += '<circle cx="' + s[0] + '" cy="316" r="36" fill="#060a1a" stroke="url(#h-dig)" stroke-width="4"/>';
+      b += T(s[0], 304, s[1], { s: 11, f: F.m, c: '#9aa6c8', w: 400 }) + T(s[0], 330, s[2], { s: 22, w: 700 });
+    });
+    b += T(208, 384, 'MUN · SAT 15:00', { s: 15, f: F.m, c: '#ff8fa6', w: 600 });
+    return wrap('hero', defs, b, 'Split Hero concept');
+  };
+
+  faces.sixpack = function () {
+    var defs = '<radialGradient id="s-bg"><stop offset="0" stop-color="#22262b"/><stop offset="1" stop-color="#0d0f11"/></radialGradient>';
+    var b = '<rect width="416" height="416" fill="url(#s-bg)"/>';
+    function gauge(cx, cy, label, val, frac, col) {
+      var r = 44, g = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#0b0c0d" stroke="#3a3e44" stroke-width="3"/>';
+      for (var i = 0; i <= 10; i++) { var a = -135 + 27 * i, p0 = pt(cx, cy, r - 5, a), p1 = pt(cx, cy, r - (i % 5 === 0 ? 13 : 9), a); g += '<line x1="' + p0[0] + '" y1="' + p0[1] + '" x2="' + p1[0] + '" y2="' + p1[1] + '" stroke="#8b9099" stroke-width="2"/>'; }
+      g += P(arc(cx, cy, r - 7, -135, -135 + 270 * frac), col, 3);
+      var na = -135 + 270 * frac, np = pt(cx, cy, r - 14, na);
+      g += T(cx, cy - 14, label, { s: 9, f: F.m, c: '#9aa1ad', w: 400, ls: 1 });
+      g += T(cx, cy + 30, val, { s: 14, w: 700 });
+      g += '<line x1="' + cx + '" y1="' + cy + '" x2="' + np[0] + '" y2="' + np[1] + '" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="' + cx + '" cy="' + cy + '" r="4" fill="#ddd"/>';
+      return g;
+    }
+    b += gauge(208, 70, 'HR', '59', .3, '#ff5a5a');
+    b += gauge(329, 138, 'BATT', '93%', .93, '#3ddc84');
+    b += gauge(329, 278, 'STEPS', '881', .11, '#4da3ff');
+    b += gauge(208, 346, 'WIND', '12KT', .4, '#ffb547');
+    b += gauge(87, 278, 'STRESS', '24', .24, '#c08bff');
+    b += gauge(87, 138, 'BODY', '72', .72, '#38d6d6');
+    b += T(208, 222, '09:16', { s: 54, w: 700 });
+    b += T(208, 250, 'WED 25 NOV', { s: 13, f: F.m, c: '#9aa1ad', w: 400, ls: 2 });
+    return wrap('sixpack', defs, b, 'Six-Pack concept');
+  };
+
+  faces.metar = function () {
+    var b = '<rect width="416" height="416" fill="#050607"/>';
+    b += '<circle cx="208" cy="208" r="198" fill="none" stroke="#3ddc84" stroke-width="10"/>';
+    for (var a = 0; a < 360; a += 30) { var p0 = pt(C, C, 178, a), p1 = pt(C, C, 186, a); b += '<line x1="' + p0[0] + '" y1="' + p0[1] + '" x2="' + p1[0] + '" y2="' + p1[1] + '" stroke="#4a4f57" stroke-width="2"/>'; }
+    var tip = pt(C, C, 170, 240), b1 = pt(C, C, 192, 233), b2 = pt(C, C, 192, 247);
+    b += '<polygon points="' + tip.join(',') + ' ' + b1.join(',') + ' ' + b2.join(',') + '" fill="#fff"/>';
+    b += T(208, 90, 'EGCC', { s: 18, f: F.m, c: '#9aa1ad', w: 400, ls: 3 });
+    b += '<rect x="170" y="100" width="76" height="28" rx="14" fill="#3ddc84"/>' + T(208, 121, 'VFR', { s: 19, w: 700, c: '#04210f' });
+    b += T(208, 215, '09:16', { s: 92, w: 700 });
+    var rows = ['240°/12KT G18', 'VIS 10KM FEW030', 'QNH 1018  09/04', 'RWY 23 XW 2KT'];
+    rows.forEach(function (r, i) { b += T(208, 256 + i * 26, r, { s: 17, f: F.m, c: '#d7dde6', w: 400 }); });
+    b += T(208, 370, 'SS 16:26 · NIGHT 16:56', { s: 13, f: F.m, c: '#ffb547', w: 600 });
+    return wrap('metar', '', b, 'Flight Category concept');
+  };
+
+  faces.match = function () {
+    var b = '<rect width="416" height="416" fill="#0a0a0a"/>';
+    b += '<polygon points="0,0 416,0 416,140 0,250" fill="#c8102e"/><line x1="0" y1="250" x2="416" y2="140" stroke="#f5c542" stroke-width="3"/>';
+    b += P(arc(C, C, 200, 0, 359.9), '#222', 6) + P(arc(C, C, 200, 0, 198), '#f5c542', 6);
+    b += T(208, 126, '09:16', { s: 84, w: 700 });
+    b += T(208, 158, 'WED 25 NOV', { s: 14, f: F.m, c: '#ffd9de', w: 400, ls: 2 });
+    b += T(208, 244, 'NEXT · PREMIER LEAGUE', { s: 12, f: F.m, c: '#f5c542', w: 400, ls: 2 });
+    b += T(208, 284, 'MUN v ARS', { s: 38, w: 700 });
+    b += T(208, 312, 'SAT 15:00 · HOME', { s: 13, f: F.m, c: '#bbb', w: 400 });
+    b += T(208, 340, 'KICK-OFF IN 3D 05H', { s: 13, f: F.m, c: '#f5c542', w: 600 });
+    var form = [['W', '#2fbf71'], ['W', '#2fbf71'], ['D', '#6b6f76'], ['L', '#d0342c'], ['W', '#2fbf71']];
+    form.forEach(function (f, i) { var x = 151 + i * 24; b += '<rect x="' + x + '" y="354" width="18" height="18" rx="3" fill="' + f[1] + '"/>' + T(x + 9, 367, f[0], { s: 11, f: F.m, w: 600 }); });
+    return wrap('match', '', b, 'Matchday concept');
+  };
+
+  faces.board = function () {
+    var b = '<rect width="416" height="416" fill="#0b0b0b"/>';
+    function row(txt, y, cw, ch, size, col) {
+      var gap = 3, n = txt.length, w = n * cw + (n - 1) * gap, x0 = 208 - w / 2, out = '';
+      for (var i = 0; i < n; i++) {
+        var x = x0 + i * (cw + gap);
+        out += '<rect x="' + x + '" y="' + y + '" width="' + cw + '" height="' + ch + '" rx="3" fill="#1d1d20"/>';
+        out += '<line x1="' + x + '" y1="' + (y + ch / 2) + '" x2="' + (x + cw) + '" y2="' + (y + ch / 2) + '" stroke="#000" stroke-width="1.5"/>';
+        if (txt[i] !== ' ') out += T(x + cw / 2, y + ch * 0.74, txt[i], { s: size, f: F.m, c: col, w: 600 });
+      }
+      return out;
+    }
+    b += T(208, 76, 'DEPARTURES', { s: 13, f: F.m, c: '#ffb547', w: 600, ls: 4 });
+    b += row('09:16', 88, 46, 66, 52, '#fff');
+    b += row('WED 25 NOV', 172, 20, 28, 18, '#fff');
+    b += row('MUN SAT 1500', 206, 20, 28, 18, '#ff6b81');
+    b += row('EGCC VFR 2412', 240, 20, 28, 18, '#3ddc84');
+    b += row('HR 59  BB 72', 274, 20, 28, 18, '#fff');
+    b += row('SUNSET 1626', 308, 20, 28, 18, '#ffb547');
+    b += T(208, 368, 'GATE 265', { s: 12, f: F.m, c: '#666', w: 400, ls: 3 });
+    return wrap('board', '', b, 'Departure Board concept');
+  };
+
+  faces.fairway = function () {
+    var defs = '<pattern id="f-mow" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="30" height="60" fill="#1f5a32"/><rect x="30" width="30" height="60" fill="#256b3b"/></pattern>' +
+      '<radialGradient id="f-vig"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></radialGradient>';
+    var b = '<rect width="416" height="416" fill="url(#f-mow)"/><rect width="416" height="416" fill="url(#f-vig)"/>';
+    b += '<ellipse cx="208" cy="122" rx="16" ry="5" fill="#0a2a14"/><line x1="208" y1="50" x2="208" y2="122" stroke="#eee" stroke-width="3"/><polygon points="208,50 246,62 208,74" fill="#ff3b3b"/>';
+    b += T(208, 205, '09:16', { s: 88, w: 700 });
+    b += T(208, 240, 'WED 25 · 9°C', { s: 16, f: F.b, c: '#e6f3e8', w: 600 });
+    b += '<circle cx="120" cy="296" r="42" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.5)" stroke-width="2"/>';
+    b += '<g transform="translate(120 296) rotate(60)"><path d="M0 -26 L10 -6 L3 -6 L3 22 L-3 22 L-3 -6 L-10 -6Z" fill="#fff"/></g>';
+    b += T(120, 356, '12 MPH SW', { s: 12, f: F.m, w: 600 });
+    b += '<circle cx="296" cy="296" r="42" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.5)" stroke-width="2"/>';
+    b += T(296, 298, '7H10', { s: 22, w: 700 }) + T(296, 316, 'DAYLIGHT', { s: 9, f: F.m, c: '#cfe8d4', w: 400, ls: 1 });
+    b += T(296, 356, 'SUNSET 16:26', { s: 12, f: F.m, w: 600 });
+    b += T(208, 288, 'HCP', { s: 11, f: F.m, c: '#cfe8d4', w: 400, ls: 2 }) + T(208, 316, '14.2', { s: 26, w: 700 });
+    b += T(208, 388, '881 STEPS', { s: 12, f: F.m, c: '#cfe8d4', w: 400 });
+    return wrap('fairway', defs, b, 'Fairway concept');
+  };
+
+  faces.train = function () {
+    var defs = '<linearGradient id="t-g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ffb547"/><stop offset="1" stop-color="#ff4d6d"/></linearGradient>';
+    var b = '<rect width="416" height="416" fill="#0c0d10"/>';
+    b += P(arc(C, C, 192, -135, 135), '#1e2128', 14) + P(arc(C, C, 192, -135, -135 + 270 * .72), 'url(#t-g)', 14);
+    b += P(arc(C, C, 168, -135, 135), '#16241c', 8) + P(arc(C, C, 168, -135, -135 + 270 * .64), '#3ddc84', 8);
+    b += T(208, 168, '09:16', { s: 80, w: 700 });
+    b += T(208, 196, 'WED 25 NOV', { s: 14, f: F.m, c: '#8a93a3', w: 400, ls: 2 });
+    [[150, 242, 'VO2 MAX', '52'], [266, 242, 'RECOVERY', '18h'], [150, 300, '5K PRED', '21:40'], [266, 300, 'INTENSITY', '96m']].forEach(function (s) {
+      b += T(s[0], s[1] - 18, s[2], { s: 10, f: F.m, c: '#8a93a3', w: 400, ls: 1 }) + T(s[0], s[1] + 10, s[3], { s: 26, w: 700 });
+    });
+    b += T(208, 380, '32.4 / 45 KM WEEK', { s: 13, f: F.m, c: '#ff9a5a', w: 600 });
+    return wrap('train', defs, b, 'Training Block concept');
+  };
+
+  faces.radar = function () {
+    var b = '<rect width="416" height="416" fill="#020a05"/>';
+    [60, 120, 180].forEach(function (r) { b += '<circle cx="208" cy="208" r="' + r + '" fill="none" stroke="#0f4d2a" stroke-width="1.5"/>'; });
+    b += '<line x1="208" y1="20" x2="208" y2="396" stroke="#0f4d2a" stroke-width="1.5"/><line x1="20" y1="208" x2="396" y2="208" stroke="#0f4d2a" stroke-width="1.5"/>';
+    for (var a = 0; a < 360; a += 10) { var p0 = pt(C, C, 194, a), p1 = pt(C, C, a % 30 ? 200 : 206, a); b += '<line x1="' + p0[0] + '" y1="' + p0[1] + '" x2="' + p1[0] + '" y2="' + p1[1] + '" stroke="#1d7a45" stroke-width="2"/>'; }
+    var lead = 354;
+    for (var i = 0; i < 16; i++) {
+      var a1 = lead - 2.5 * i, a0 = a1 - 2.6, q0 = pt(C, C, 200, a0), q1 = pt(C, C, 200, a1);
+      b += '<path d="M208 208 L' + q0[0] + ' ' + q0[1] + ' A200 200 0 0 1 ' + q1[0] + ' ' + q1[1] + 'Z" fill="#39ff88" opacity="' + (0.32 * (1 - i / 16)).toFixed(3) + '"/>';
+    }
+    var le = pt(C, C, 200, lead);
+    b += '<line x1="208" y1="208" x2="' + le[0] + '" y2="' + le[1] + '" stroke="#7dffb0" stroke-width="2"/>';
+    [[112, 118, 'HR 59'], [300, 108, 'BB 72'], [322, 290, '881'], [98, 300, '93%'], [236, 342, 'MUN 3D']].forEach(function (k) {
+      b += '<circle cx="' + k[0] + '" cy="' + k[1] + '" r="11" fill="#39ff88" opacity=".22"/><circle cx="' + k[0] + '" cy="' + k[1] + '" r="5" fill="#7dffb0"/>';
+      b += T(k[0] + 12, k[1] - 10, k[2], { s: 13, f: F.m, c: '#7dffb0', a: 'start', w: 600 });
+    });
+    b += '<rect x="116" y="176" width="184" height="66" rx="6" fill="#020a05" opacity=".8"/>';
+    b += T(208, 226, '09:16', { s: 56, f: F.m, w: 600, c: '#b6ffd3' });
+    b += T(208, 262, 'WED 25', { s: 13, f: F.m, c: '#39c46f', w: 400, ls: 3 });
+    return wrap('radar', '', b, 'Radar concept');
+  };
+
+  faces.rings = function () {
+    var b = '<rect width="416" height="416" fill="#000"/>';
+    [[192, .62, '#ff4d6d'], [170, .11, '#4da3ff'], [148, .64, '#3ddc84'], [126, .72, '#ffb547']].forEach(function (r) {
+      b += '<circle cx="208" cy="208" r="' + r[0] + '" fill="none" stroke="' + r[2] + '" stroke-opacity=".18" stroke-width="14"/>';
+      b += P(arc(C, C, r[0], 0, 360 * r[1]), r[2], 14);
+    });
+    b += T(208, 182, 'HR 59', { s: 12, f: F.m, c: '#ff4d6d', w: 400, ls: 2 });
+    b += T(208, 234, '9:16', { s: 72, w: 300, f: F.b });
+    b += T(208, 262, 'Wed 25 Nov', { s: 15, f: F.b, c: '#aaa', w: 400 });
+    return wrap('rings', '', b, 'Ring Stack concept');
+  };
+
+  faces.adi = function () {
+    var defs = '<linearGradient id="a-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f5fae"/><stop offset="1" stop-color="#7fb8f0"/></linearGradient>' +
+      '<linearGradient id="a-gnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a5428"/><stop offset="1" stop-color="#4a2a12"/></linearGradient>';
+    var hy = 300, b = '<g transform="rotate(-8 208 208)">';
+    b += '<rect x="-200" y="-200" width="816" height="' + (hy + 200) + '" fill="url(#a-sky)"/><rect x="-200" y="' + hy + '" width="816" height="400" fill="url(#a-gnd)"/>';
+    b += '<line x1="-200" y1="' + hy + '" x2="616" y2="' + hy + '" stroke="#fff" stroke-width="3"/>';
+    [-40, -80, 40].forEach(function (d) { var w = d % 80 === 0 ? 40 : 24; b += '<line x1="' + (208 - w) + '" y1="' + (hy + d) + '" x2="' + (208 + w) + '" y2="' + (hy + d) + '" stroke="#fff" stroke-opacity=".8" stroke-width="2"/>'; });
+    b += '</g>';
+    b += P(arc(C, C, 170, -60, 60), '#fff', 2);
+    [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60].forEach(function (a) { var p0 = pt(C, C, 170, a), p1 = pt(C, C, a % 30 === 0 ? 186 : 180, a); b += '<line x1="' + p0[0] + '" y1="' + p0[1] + '" x2="' + p1[0] + '" y2="' + p1[1] + '" stroke="#fff" stroke-width="2"/>'; });
+    b += '<polygon points="208,36 200,22 216,22" fill="#fff"/>';
+    var bp = pt(C, C, 164, -8), bl = pt(C, C, 150, -11), br = pt(C, C, 150, -5);
+    b += '<polygon points="' + bp.join(',') + ' ' + bl.join(',') + ' ' + br.join(',') + '" fill="#ffb547"/>';
+    b += T(208, 150, '09:16', { s: 82, w: 700, x: 'stroke="#0b2a4a" stroke-width="1.5" paint-order="stroke"' });
+    b += '<path d="M112 210 H176 L190 226 M304 210 H240 L226 226" fill="none" stroke="#ffb547" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="208" cy="210" r="6" fill="#ffb547"/>';
+    b += T(208, 344, 'BODY BATTERY 72', { s: 14, f: F.m, c: '#fff', w: 600, ls: 1 });
+    b += T(208, 368, 'HR 59 · 93% · WED 25', { s: 12, f: F.m, c: '#f3dcc5', w: 400 });
+    return wrap('adi', defs, b, 'Attitude concept');
+  };
+
+  document.querySelectorAll('[data-face]').forEach(function (el) {
+    var fn = faces[el.getAttribute('data-face')];
+    if (fn) el.innerHTML = fn();
+  });
+})();
+</script>
