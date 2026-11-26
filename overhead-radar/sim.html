@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ARTIFACT-START -->
+<title>Radar Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: workbench. Notes and a "try this" checklist on the left; the device on the right, at the real
+   screen resolution, scaled to fit. Single dark look, like the room the display sits in. */
+:root {
+  --bg: #121416; --panel: #191c1f; --line: #2a2f34; --fg: #e8eaec; --muted: #9aa3ab; --accent: #f0a04b; --ok: #6fd39a;
+  --body: 'Inter', system-ui, sans-serif; --display: 'Space Grotesk', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
+body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+.layout { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 28px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .bench { order: -1; } }
+.guide { display: grid; gap: 18px; min-width: 0; }
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 34px/1.05 var(--display); margin: 6px 0 6px; }
+.lede { margin: 0; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.card h2 { margin: 0; font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button, .btn { background: #20242a; color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font: 13px var(--body); cursor: pointer; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.btn:hover, .seg button:hover { border-color: var(--accent); }
+.row { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center; }
+.row > span { color: var(--muted); font-size: 13px; }
+ol.try { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: t; }
+ol.try li { counter-increment: t; display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 14px; }
+ol.try li label { cursor: pointer; }
+ol.try input { margin-top: 4px; accent-color: var(--ok); }
+ol.try li:has(input:checked) label { color: var(--muted); text-decoration: line-through; }
+kbd { font: 12px var(--mono); background: #20242a; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 13px; color: var(--muted); }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+.bench { position: sticky; top: 16px; display: grid; justify-items: center; gap: 12px; min-width: 0; }
+.desk { width: 100%; display: grid; place-items: center; padding: 18px 0 8px; background: radial-gradient(ellipse at 50% 30%, #2a2e33, #15171a 70%); border-radius: 18px; border: 1px solid var(--line); }
+.device { position: relative; display: grid; place-items: center; filter: drop-shadow(0 18px 30px rgba(0,0,0,.55)); }
+.frame { position: absolute; inset: 0; }
+.frame.instrument { border-radius: 9%; background: linear-gradient(145deg, #3a3e45, #1d2024 60%, #17191c); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 6px rgba(0,0,0,.5); }
+.frame.puck { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #3a3e45, #1d2024 62%, #141618); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 6px rgba(0,0,0,.5); }
+.screw { position: absolute; width: 3.6%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 40% 35%, #6c727b, #2a2d31 70%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.6); }
+.screw::after { content: ""; position: absolute; inset: 32%; background: #111; clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%); }
+.groove { position: absolute; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.05); }
+.glass { position: relative; border-radius: 50%; overflow: hidden; background: #000; box-shadow: 0 0 0 3px #08090a, 0 0 0 4px rgba(255,255,255,.06); }
+.glass iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; display: block; background: #000; }
+.glare { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: linear-gradient(150deg, rgba(255,255,255,.07), rgba(255,255,255,0) 38%); }
+.caption { font: 12px var(--mono); color: var(--muted); text-align: center; }
+.fail { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 18%; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="guide">
+    <div>
+      <div class="eyebrow">Overhead Radar · device simulator</div>
+      <h1>Try it like the real thing</h1>
+      <p class="lede">The screen on the right is the real radar software at the Waveshare 5″ screen's resolution, running demo traffic over Galway. Click it as you would tap the screen.</p>
+    </div>
+
+    <div class="card">
+      <h2>Simulator</h2>
+      <div class="row"><span>Case</span><div class="seg" id="case-seg">
+        <button type="button" data-case="instrument" aria-pressed="true">Instrument</button>
+        <button type="button" data-case="puck" aria-pressed="false">Puck</button>
+      </div></div>
+      <p class="note" style="margin:0">Screen: Waveshare 5″, 1080 × 1080, with the Pi's kiosk scale set to 2.25× (as <code>setup-pi.sh</code> does). The layout is the same 480-point grid you see here.</p>
+      <div class="seg">
+        <button type="button" class="btn" id="power">Power cycle</button>
+        <button type="button" class="btn" id="factory">Clear saved settings</button>
+      </div>
+      <p class="note">Settings you change on the screen are kept in this browser, as they would be on the Pi. Power cycle restarts the software; Clear saved settings returns everything to the defaults.</p>
+    </div>
+
+    <div class="card">
+      <h2>Try this</h2>
+      <ol class="try" id="try">
+        <li><input type="checkbox" id="t1"><label for="t1">Tap any plane to open its details card, then tap outside it to close.</label></li>
+        <li><input type="checkbox" id="t2"><label for="t2">Use <b>+</b> and <b>−</b> to zoom from 5 to 80 nm. Watch the coast sharpen close in.</label></li>
+        <li><input type="checkbox" id="t3"><label for="t3">Tap <b>⚙</b> and pick a different <b>Look</b>, such as Green Chart.</label></li>
+        <li><input type="checkbox" id="t4"><label for="t4">In ⚙, tap <b>Appearance…</b> and change the font, clock or labels.</label></li>
+        <li><input type="checkbox" id="t5"><label for="t5">Tap the <b>pin</b> and switch to Shannon, then back to Galway.</label></li>
+        <li><input type="checkbox" id="t6"><label for="t6">Tap <b>✈</b>, type <b>EI105</b> and track it. Then tap the card at the bottom.</label></li>
+        <li><input type="checkbox" id="t7"><label for="t7">In ⚙, use <b>Pick on the map</b> to set a new centre with a tap.</label></li>
+        <li><input type="checkbox" id="t8"><label for="t8">Power cycle and check that your look and place were remembered.</label></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>Keys (click the screen first)</h2>
+      <div class="keys">
+        <span><kbd>+</kbd> <kbd>−</kbd></span><span>Zoom in and out</span>
+        <span><kbd>S</kbd></span><span>Settings</span>
+        <span><kbd>L</kbd></span><span>Places</span>
+        <span><kbd>T</kbd></span><span>Track a flight</span>
+        <span><kbd>A</kbd></span><span>Appearance</span>
+        <span><kbd>Enter</kbd></span><span>Details of the nearest plane</span>
+        <span><kbd>Esc</kbd></span><span>Close</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bench">
+    <div class="desk" id="desk">
+      <div class="device" id="device">
+        <div class="frame instrument" id="frame"></div>
+        <div class="glass" id="glass">
+          <iframe id="screen" title="Overhead Radar screen" scrolling="no"></iframe>
+          <div class="glare"></div>
+          <div class="fail" id="fail" hidden>The radar screen couldn't load here. Open <code>index.html?demo=1</code> directly instead.</div>
+        </div>
+      </div>
+    </div>
+    <div class="caption" id="caption"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var screen = document.getElementById('screen'), glass = document.getElementById('glass'), device = document.getElementById('device');
+  var frame = document.getElementById('frame'), desk = document.getElementById('desk'), caption = document.getElementById('caption');
+  // 1080 physical pixels at a 2.25x scale factor = a 480 x 480 CSS layout, exactly as on the Pi
+  var CSS_PX = 480, PHYS = 1080;
+  var state = { kase: 'instrument' };
+  try { var s0 = JSON.parse(localStorage.getItem('overhead-radar-sim') || 'null'); if (s0) state = { kase: s0.kase === 'puck' ? 'puck' : 'instrument' }; } catch (e) { /* ignore */ }
+  try { var t0 = JSON.parse(localStorage.getItem('overhead-radar-sim-try') || '[]'); t0.forEach(function (id) { var c = document.getElementById(id); if (c) c.checked = true; }); } catch (e) { /* ignore */ }
+  document.querySelectorAll('#try input').forEach(function (c) {
+    c.addEventListener('change', function () {
+      var done = Array.prototype.filter.call(document.querySelectorAll('#try input'), function (x) { return x.checked; }).map(function (x) { return x.id; });
+      try { localStorage.setItem('overhead-radar-sim-try', JSON.stringify(done)); } catch (e) { /* ignore */ }
+    });
+  });
+
+  // radar.html when published as an artifact, index.html in the repository
+  var SRC = 'index.html';
+  fetch('radar.html', { method: 'HEAD' }).then(function (r) { if (r.ok) SRC = 'radar.html'; }).catch(function () {}).then(boot);
+
+  function boot() { layout(); load(); }
+  function load() {
+    var ok = false;
+    screen.onload = function () { ok = true; document.getElementById('fail').hidden = true; };
+    screen.src = SRC + '?demo=1';
+    setTimeout(function () { if (!ok) document.getElementById('fail').hidden = false; }, 8000);
+  }
+
+  function layout() {
+    // glass diameter on the page; the frame is 178 mm around a 150 mm panel, as printed
+    var avail = Math.min(desk.clientWidth - 40, window.innerHeight - 120, 640);
+    var D = Math.max(240, Math.round(avail / 1.19));
+    var F = Math.round(D * 1.19);
+    device.style.width = device.style.height = F + 'px';
+    glass.style.width = glass.style.height = D + 'px';
+    screen.style.width = screen.style.height = CSS_PX + 'px';
+    screen.style.transform = 'scale(' + (D / CSS_PX) + ')';
+    frame.className = 'frame ' + state.kase;
+    frame.innerHTML = '';
+    var screws = state.kase === 'instrument'
+      ? [[7 / 178, 7 / 178], [171 / 178, 7 / 178], [7 / 178, 171 / 178], [171 / 178, 171 / 178]]
+      : [90, 210, 330].map(function (a) { var t = a * Math.PI / 180, r = (89 - 3) / 178; return [0.5 + Math.cos(t) * r, 0.5 + Math.sin(t) * r]; });
+    screws.forEach(function (p) { var s = document.createElement('i'); s.className = 'screw'; s.style.left = p[0] * 100 + '%'; s.style.top = p[1] * 100 + '%'; frame.appendChild(s); });
+    var g = document.createElement('i'); g.className = 'groove';
+    var gd = (127.6 + 2 * 2.5 + 4) / 178; g.style.left = g.style.top = (50 - gd * 50) + '%'; g.style.width = g.style.height = gd * 100 + '%';
+    frame.appendChild(g);
+    document.querySelectorAll('#case-seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.case === state.kase)); });
+    caption.textContent = (state.kase === 'instrument' ? 'Instrument case' : 'Puck case') + ' · 5″ round, ' + PHYS + ' × ' + PHYS + ' at 2.25× · shown at ' + Math.round(D / CSS_PX * 100) + ' % of 480 pt';
+    try { localStorage.setItem('overhead-radar-sim', JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  document.querySelectorAll('#case-seg button').forEach(function (b) { b.addEventListener('click', function () { state.kase = b.dataset.case; layout(); }); });
+  document.getElementById('power').addEventListener('click', function () {
+    screen.style.opacity = '0';
+    setTimeout(function () { screen.src = SRC + '?demo=1&t=' + Date.now(); screen.style.opacity = '1'; }, 600);
+  });
+  document.getElementById('factory').addEventListener('click', function () {
+    try {
+      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('overhead-radar') === 0 && k.indexOf('overhead-radar-sim') !== 0) localStorage.removeItem(k); });
+    } catch (e) { /* ignore */ }
+    screen.src = SRC + '?demo=1&t=' + Date.now();
+  });
+  screen.style.transition = 'opacity .5s';
+  window.addEventListener('resize', layout);
+})();
+</script>
+<!-- ARTIFACT-END -->
+</body>
+</html>

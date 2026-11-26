@@ -392,7 +392,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_error(404)
                 return
             return super().do_GET()
-        if path not in ("/", "/index.html", "/geo.js"):
+        if path not in ("/", "/index.html", "/sim.html", "/geo.js"):
             self.send_error(404)
             return
         return super().do_GET()

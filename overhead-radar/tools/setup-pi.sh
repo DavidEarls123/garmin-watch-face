@@ -6,6 +6,7 @@
 #   sudo ./tools/setup-pi.sh --with-receiver --rtlsdr-v4   # RTL-SDR Blog V4: also installs its driver
 #   sudo ./tools/setup-pi.sh --with-receiver --lat 53.2707 --lon -9.0568 --name Galway --theme greenchart
 #   looks: scope, glass, chart, greenchart, phosphor, amber, devils, minimal (changeable later on screen)
+#   --scale 2.25 suits the 1080 px Waveshare 5"; use 1.67 for an 800 px screen, 1 for 480 px
 #
 # What it does:
 #   1. installs Chromium (for the full-screen page)
@@ -21,6 +22,7 @@ LAT=53.2707
 LON=-9.0568
 NAME=Galway
 THEME=scope
+SCALE=2.25   # 1080 px Waveshare 5" shown at the size of a 480 px layout, so buttons and text are finger-sized
 RECEIVER=0
 V4=0
 KIOSK=1
@@ -34,7 +36,8 @@ while [[ $# -gt 0 ]]; do
         --lon) LON="$2"; shift ;;
         --name) NAME="$2"; shift ;;
         --theme) THEME="$2"; shift ;;
-        -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+        --scale) SCALE="$2"; shift ;;
+        -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (try --help)"; exit 1 ;;
     esac
     shift
@@ -123,7 +126,7 @@ systemctl restart overhead-radar
 
 if [[ $KIOSK -eq 1 ]]; then
     step "Full-screen start at login"
-    LINE="$BROWSER --kiosk --noerrdialogs --disable-infobars --password-store=basic --check-for-update-interval=31536000 http://localhost:8000 &"
+    LINE="$BROWSER --kiosk --force-device-scale-factor=$SCALE --noerrdialogs --disable-infobars --password-store=basic --check-for-update-interval=31536000 http://localhost:8000 &"
     # labwc (current Raspberry Pi OS desktop)
     install -d -o "$RUN_USER" -g "$RUN_USER" "$RUN_HOME/.config/labwc"
     AUTOSTART="$RUN_HOME/.config/labwc/autostart"

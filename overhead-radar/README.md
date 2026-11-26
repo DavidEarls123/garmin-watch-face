@@ -88,6 +88,10 @@ When you tap a plane, the server looks it up, caching each answer for 6 hours:
 
 Both are free community services. Use `--no-lookups` to turn them off.
 
+## Simulator
+
+Open <http://localhost:8000/sim.html> to try the radar inside a picture of the printed case (instrument or puck), at the same 480-point layout the 5″ screen uses with the kiosk's 2.25× scale. It runs demo traffic, and a checklist walks through every feature.
+
 ## Raspberry Pi setup in one step
 
 ```bash
@@ -134,7 +138,7 @@ A Raspberry Pi with a round display works well:
 4. Open the page full screen at login. On Raspberry Pi OS Bookworm (labwc desktop), add this line to `~/.config/labwc/autostart`:
 
    ```bash
-   chromium --kiosk --noerrdialogs --disable-infobars --password-store=basic http://localhost:8000 &
+   chromium --kiosk --force-device-scale-factor=2.25 --noerrdialogs --disable-infobars --password-store=basic http://localhost:8000 &
    ```
 
    On older Raspberry Pi OS versions the browser is called `chromium-browser`.
