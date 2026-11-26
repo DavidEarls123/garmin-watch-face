@@ -341,6 +341,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json({"error": "lookups are turned off (--no-lookups)"}, 503)
             network = self.args.online if self.args.source in ("readsb", "hybrid") else self.args.source
             return self.send_json(self.lookup.track(q, network, self.feed))
+        if path.startswith("/fonts/"):
+            if not re.fullmatch(r"/fonts/[a-z0-9-]+\.(woff2|css)", path):
+                self.send_error(404)
+                return
+            return super().do_GET()
         if path not in ("/", "/index.html", "/geo.js"):
             self.send_error(404)
             return

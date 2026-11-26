@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- ARTIFACT-START -->
 <title>Overhead Radar</title>
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
   :root {
     --bg: #000;
@@ -19,6 +20,37 @@
   canvas { display: block; }
   button, input { font: inherit; }
   [hidden] { display: none !important; }
+  /* appearance studio: a column on the right of wide screens, a pop-up on the round display */
+  body.studio { grid-template-columns: 1fr 360px; place-items: center; }
+  .studio-panel { color: #dfe8ec; font: 14px/1.45 'Inter', system-ui, sans-serif; cursor: default; }
+  body.studio-below { display: block; overflow-y: auto; height: auto; min-height: 100%; position: relative; }
+  html:has(body.studio-below) { overflow-y: auto; }
+  body.studio-below #scope { margin: 0 auto; }
+  body.studio-below .studio-panel { display: block !important; border-top: 1px solid #22313a; background: #0d1418; }
+  body.studio-below #studio-close, body.studio #studio-close { display: none; }
+  body.studio .studio-panel { display: block !important; justify-self: stretch; align-self: stretch; height: 100vh; overflow-y: auto;
+    background: #0d1418; border-left: 1px solid #22313a; }
+  body:not(.studio):not(.studio-below) .studio-panel { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 5; }
+  body:not(.studio):not(.studio-below) .studio-inner { width: min(80vmin, 420px); max-height: 74vmin; overflow-y: auto; background: #0d1418; border: 1px solid #22313a; border-radius: 14px; }
+  .studio-inner { padding: 18px 18px 28px; display: grid; gap: 18px; box-sizing: border-box; }
+  .studio-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .studio-head h2 { margin: 0; font: 700 20px/1.2 'Space Grotesk', system-ui, sans-serif; color: #fff; }
+  .studio-head p { margin: 2px 0 0; color: #8aa0ab; font-size: 12.5px; }
+  body.studio #studio-close { display: none; }
+  .st-sec h3 { margin: 0 0 8px; font: 600 11px/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; color: #8aa0ab; }
+  .st-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .st-preset { background: #121c21; border: 1px solid #22313a; border-radius: 12px; padding: 8px 6px 7px; color: #dfe8ec; cursor: pointer; display: grid; justify-items: center; gap: 6px; font: 600 12px/1.2 'Inter', system-ui, sans-serif; }
+  .st-preset[aria-pressed="true"] { border-color: #ffb547; box-shadow: 0 0 0 1px #ffb547 inset; }
+  .st-dot { width: 54px; height: 54px; border-radius: 50%; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.12); }
+  .st-dot i { position: absolute; border-radius: 50%; }
+  .st-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .st-seg button, .st-toggle { background: #121c21; color: #dfe8ec; border: 1px solid #22313a; border-radius: 999px; padding: 6px 11px; font: 13px/1.2 'Inter', system-ui, sans-serif; cursor: pointer; }
+  .st-seg button[aria-pressed="true"], .st-toggle[aria-pressed="true"] { border-color: #ffb547; color: #ffb547; }
+  .st-row { display: grid; grid-template-columns: 84px 1fr; gap: 8px; align-items: center; margin-bottom: 7px; }
+  .st-row span { color: #8aa0ab; font-size: 12.5px; }
+  .st-sw { display: inline-block; width: 28px; height: 10px; border-radius: 5px; vertical-align: middle; margin-right: 6px; }
+  .st-foot { display: flex; gap: 8px; flex-wrap: wrap; }
+  .st-foot button { background: none; border: 1px solid #22313a; color: #8aa0ab; border-radius: 999px; padding: 6px 12px; cursor: pointer; font: 13px 'Inter', system-ui, sans-serif; }
   .gear { position: fixed; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 1px solid #2c5568;
           background: rgba(3,9,13,.7); color: #8fb3c4; font-size: 20px; line-height: 1; display: grid; place-items: center;
           cursor: pointer; opacity: .55; padding: 0; }
@@ -40,11 +72,11 @@
   .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
   .err { color: #ff8a8a; font-size: .85em; min-height: 1.2em; margin: -4px 0; }
   .fine { color: #4b6675; font-size: .75em; margin: 0; }
-  .ctl { position: fixed; width: 13vmin; height: 13vmin; max-width: 64px; max-height: 64px; min-width: 40px; min-height: 40px;
-         transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid #2c5568; background: rgba(3,9,13,.72);
-         color: #a9c4d2; font: 600 clamp(16px, 5vmin, 26px)/1 ui-monospace, 'DejaVu Sans Mono', monospace; display: grid;
+  .ctl { position: absolute; width: 13vmin; height: 13vmin; max-width: 64px; max-height: 64px; min-width: 40px; min-height: 40px;
+         transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid var(--ctl-border, #2c5568); background: var(--ctl-bg, rgba(3,9,13,.72));
+         color: var(--ctl-fg, #a9c4d2); font: 600 clamp(16px, 5vmin, 26px)/1 ui-monospace, 'DejaVu Sans Mono', monospace; display: grid;
          place-items: center; cursor: pointer; padding: 0; opacity: .7; touch-action: manipulation; }
-  .ctl:hover, .ctl:active { opacity: 1; border-color: #6aa7c4; }
+  .ctl:hover, .ctl:active { opacity: 1; border-color: var(--ctl-hi, #6aa7c4); }
   .ctl svg { width: 52%; height: 52%; }
   .check { display: flex !important; align-items: center; gap: 6px; }
   .check input { width: auto; }
@@ -108,6 +140,7 @@
     <div class="chips">
       <button type="button" id="c-pick">Pick on the map</button>
       <button type="button" id="c-here">Use my location</button>
+      <button type="button" id="c-appearance">Appearance…</button>
     </div>
     <label class="check" for="c-keep"><input type="checkbox" id="c-keep" checked> Add to my places list</label>
     <div class="actions">
@@ -170,6 +203,15 @@
     <div class="d-actions"><button type="button" id="d-track" class="primary">Track this flight</button></div>
   </div>
 </div>
+<aside class="studio-panel" id="studio" hidden aria-label="Appearance">
+  <div class="studio-inner">
+    <div class="studio-head">
+      <div><h2>Appearance</h2><p>Changes apply live and are saved on this screen.</p></div>
+      <button type="button" class="st-toggle" id="studio-close">Done</button>
+    </div>
+    <div id="studio-body" style="display:grid;gap:18px"></div>
+  </div>
+</aside>
 <script src="geo.js"></script>
 <script>
 (function () {
@@ -220,6 +262,7 @@
   }
 
   // Reference points drawn when inside the current range.
+  // Reference points drawn when inside the current range (minRange: only when zoomed in at least that far).
   var PLACES = [
     { id: 'EICM', lat: 53.3003, lon: -8.9416, kind: 'apt' },
     { id: 'EINN', lat: 52.7020, lon: -8.9248, kind: 'apt' },
@@ -227,9 +270,35 @@
     { id: 'EIIM', lat: 53.1067, lon: -9.6536, kind: 'apt' },
     { id: 'EICA', lat: 53.1147, lon: -9.4678, kind: 'apt' },
     { id: 'Galway', lat: 53.2707, lon: -9.0568, kind: 'town' },
-    { id: 'Ennis', lat: 52.8436, lon: -8.9864, kind: 'town' },
+    { id: 'Oranmore', lat: 53.2683, lon: -8.9260, kind: 'town', minRange: 20 },
+    { id: 'Claregalway', lat: 53.3445, lon: -8.9460, kind: 'town', minRange: 10 },
+    { id: 'Moycullen', lat: 53.3380, lon: -9.1800, kind: 'town', minRange: 20 },
+    { id: 'Spiddal', lat: 53.2440, lon: -9.3050, kind: 'town', minRange: 20 },
+    { id: 'Kinvara', lat: 53.1400, lon: -8.9370, kind: 'town', minRange: 20 },
+    { id: 'Headford', lat: 53.4690, lon: -9.1090, kind: 'town', minRange: 20 },
+    { id: 'Athenry', lat: 53.2960, lon: -8.7440, kind: 'town', minRange: 40 },
+    { id: 'Oughterard', lat: 53.4280, lon: -9.3200, kind: 'town', minRange: 40 },
+    { id: 'Tuam', lat: 53.5140, lon: -8.8510, kind: 'town', minRange: 40 },
+    { id: 'Loughrea', lat: 53.1970, lon: -8.5670, kind: 'town', minRange: 40 },
+    { id: 'Gort', lat: 53.0660, lon: -8.8160, kind: 'town', minRange: 40 },
     { id: 'Clifden', lat: 53.4893, lon: -10.0193, kind: 'town' },
-    { id: 'Athlone', lat: 53.4239, lon: -7.9407, kind: 'town' }
+    { id: 'Ennis', lat: 52.8436, lon: -8.9864, kind: 'town' },
+    { id: 'Ballinasloe', lat: 53.3290, lon: -8.2190, kind: 'town' },
+    { id: 'Athlone', lat: 53.4239, lon: -7.9407, kind: 'town' },
+    { id: 'Castlebar', lat: 53.8550, lon: -9.2980, kind: 'town' },
+    { id: 'Westport', lat: 53.8000, lon: -9.5190, kind: 'town' },
+    { id: 'Limerick', lat: 52.6640, lon: -8.6230, kind: 'town' }
+  ];
+  // Area names, drawn faintly behind everything.
+  var AREAS = [
+    { id: 'GALWAY BAY', lat: 53.17, lon: -9.30, from: 10, to: 40 },
+    { id: 'LOUGH CORRIB', lat: 53.45, lon: -9.24, from: 10, to: 40 },
+    { id: 'LOUGH MASK', lat: 53.62, lon: -9.36, from: 20, to: 80 },
+    { id: 'LOUGH DERG', lat: 52.97, lon: -8.33, from: 20, to: 80 },
+    { id: 'THE BURREN', lat: 53.04, lon: -9.10, from: 20, to: 40 },
+    { id: 'CONNEMARA', lat: 53.50, lon: -9.72, from: 20, to: 80 },
+    { id: 'ARAN ISLANDS', lat: 53.07, lon: -9.62, from: 20, to: 80 },
+    { id: 'ATLANTIC OCEAN', lat: 53.15, lon: -10.55, from: 40, to: 80 }
   ];
 
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -314,23 +383,39 @@
     }).then(function () { if (seq === pollSeq) pollTimer = setTimeout(poll, CFG.pollMs); });
   }
 
-  // ---------- land and lake outlines (geo.js), projected once per centre ----------
-  var geoPaths = null;
+  // ---------- land and lake outlines (geo.js): projected once per centre, one set per level of detail ----------
+  var geoLods = [];
   function buildGeo() {
     var G = window.RADAR_GEO;
-    if (!G || !window.Path2D) { geoPaths = null; return; }
+    geoLods = [];
+    if (!G || !window.Path2D) return;
+    var lods = G.lods || [{ maxRange: null, land: G.land, coast: G.coast, lakes: G.lakes }];
+    function mid(a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
     function mk(rings, close) {
+      // quadratic curves through segment midpoints soften the outline without moving it noticeably
       var path = new Path2D();
       rings.forEach(function (r) {
-        for (var i = 0; i < r.length; i += 2) {
-          var xy = toXY(r[i + 1], r[i]);
-          if (i) path.lineTo(xy[0], xy[1]); else path.moveTo(xy[0], xy[1]);
+        var pts = [];
+        for (var i = 0; i < r.length; i += 2) pts.push(toXY(r[i + 1], r[i]));
+        var n = pts.length, j, m;
+        if (n < 2) return;
+        if (close && n > 2) {
+          m = mid(pts[n - 1], pts[0]); path.moveTo(m[0], m[1]);
+          for (j = 0; j < n; j++) { m = mid(pts[j], pts[(j + 1) % n]); path.quadraticCurveTo(pts[j][0], pts[j][1], m[0], m[1]); }
+          path.closePath();
+        } else {
+          path.moveTo(pts[0][0], pts[0][1]);
+          for (j = 1; j < n - 1; j++) { m = mid(pts[j], pts[j + 1]); path.quadraticCurveTo(pts[j][0], pts[j][1], m[0], m[1]); }
+          path.lineTo(pts[n - 1][0], pts[n - 1][1]);
         }
-        if (close) path.closePath();
       });
       return path;
     }
-    geoPaths = { land: mk(G.land, true), coast: mk(G.coast, false), lakes: mk(G.lakes, true) };
+    geoLods = lods.map(function (l) { return { maxRange: l.maxRange, land: mk(l.land, true), coast: mk(l.coast, false), lakes: mk(l.lakes, true) }; });
+  }
+  function geoFor(range) {
+    for (var i = 0; i < geoLods.length; i++) if (geoLods[i].maxRange == null || range <= geoLods[i].maxRange) return geoLods[i];
+    return null;
   }
 
   function setCentre(lat, lon, name, persist) {
@@ -391,22 +476,124 @@
     status.lastOk = now;
   }
 
+  // ---------- themes ----------
+  var FONTS = {
+    mono:      { label: 'Plex Mono',        stack: "'IBM Plex Mono', ui-monospace, 'DejaVu Sans Mono', monospace", bold: 600, reg: 400 },
+    condensed: { label: 'Barlow Condensed', stack: "'Barlow Condensed', 'Arial Narrow', sans-serif", bold: 700, reg: 500 },
+    techno:    { label: 'Share Tech Mono',  stack: "'Share Tech Mono', ui-monospace, monospace", bold: 400, reg: 400 },
+    grotesk:   { label: 'Space Grotesk',    stack: "'Space Grotesk', system-ui, sans-serif", bold: 700, reg: 500 },
+    sans:      { label: 'Inter',            stack: "'Inter', system-ui, sans-serif", bold: 600, reg: 300 },
+    display:   { label: 'Chakra Petch',     stack: "'Chakra Petch', system-ui, sans-serif", bold: 700, reg: 600 }
+  };
+  var ALT_PALETTES = {
+    spectrum: { label: 'By altitude', stops: [[0, [61, 220, 132]], [10000, [198, 232, 74]], [20000, [255, 181, 71]], [30000, [255, 107, 107]], [40000, [209, 107, 255]]] },
+    ink:      { label: 'By altitude (dark ink)', stops: [[0, [22, 128, 70]], [10000, [120, 130, 20]], [20000, [196, 110, 10]], [30000, [200, 40, 60]], [40000, [120, 40, 170]]] },
+    green:    { label: 'Phosphor green', stops: [[0, [70, 160, 95]], [40000, [180, 255, 200]]] },
+    amber:    { label: 'Amber', stops: [[0, [170, 105, 25]], [40000, [255, 205, 120]]] },
+    gold:     { label: 'White to gold', stops: [[0, [255, 255, 255]], [40000, [255, 214, 120]]] },
+    white:    { label: 'White', stops: [[0, [160, 168, 176]], [40000, [255, 255, 255]]] }
+  };
+  var THEMES = {
+    scope: { name: 'Night Scope', font: 'mono', alt: 'spectrum',
+      c: { outside: '#000000', bg0: '#0b1f2a', bg1: '#03090d', land: 'rgba(70,112,96,0.24)', coast: 'rgba(120,180,160,0.6)', lake: 'rgba(3,12,18,0.65)', lakeEdge: 'rgba(110,165,170,0.35)',
+           sweep: '61,220,160', ring: '#1d3b4a', ringText: '#5f7c8c', axis: 'rgba(29,59,74,.6)', tick: '#2c5568', tickMajor: '#8fb3c4', compass: '#8fb3c4',
+           place: '#58778a', apt: '#6aa7c4', home: '#d8e6ee', text: '#e9f2f6', textDim: '#9fb6c3', textMute: '#7f97a6', faint: '#4b6675',
+           warn: '#ffb547', track: '#7dd3fc', select: '#ffb547', emergency: '#ff3b3b', card: 'rgba(3,9,13,.78)', label: '#e6f0f5', planeEdge: 'rgba(0,0,0,.8)' },
+      l: { clock: 'top', card: 'card', labels: 'full', rings: 'rings', compass: 'letters', map: 'filled', sweep: true, trails: true, scanlines: false } },
+    glass: { name: 'Glass Cockpit', font: 'condensed', alt: 'spectrum',
+      c: { outside: '#000000', bg0: '#111923', bg1: '#04060a', land: 'rgba(120,92,58,0.34)', coast: 'rgba(222,178,118,0.6)', lake: 'rgba(18,58,108,0.7)', lakeEdge: 'rgba(90,150,220,0.55)',
+           sweep: '', ring: 'rgba(255,255,255,0.16)', ringText: 'rgba(255,255,255,0.6)', axis: 'rgba(255,255,255,0.07)', tick: 'rgba(255,255,255,0.45)', tickMajor: '#ffffff', compass: '#ffffff',
+           place: 'rgba(255,255,255,0.55)', apt: '#00e5ff', home: '#ffffff', text: '#ffffff', textDim: '#c9d3dd', textMute: '#8a96a3', faint: '#5c6773',
+           warn: '#ffd000', track: '#ff3dcf', select: '#00e5ff', emergency: '#ff2d2d', card: 'rgba(0,0,0,.8)', label: '#ffffff', planeEdge: 'rgba(0,0,0,.9)' },
+      l: { clock: 'top', card: 'card', labels: 'full', rings: 'rings', compass: 'hsi', map: 'filled', sweep: false, trails: true, scanlines: false } },
+    chart: { name: 'Paper Chart', font: 'grotesk', alt: 'ink',
+      c: { outside: '#ece5d3', bg0: '#cfe6f2', bg1: '#b4d5e8', land: '#efe9d2', coast: '#2f78b5', lake: '#bcdcee', lakeEdge: '#2f78b5',
+           sweep: '', ring: 'rgba(20,50,80,0.22)', ringText: '#1d4a70', axis: 'rgba(20,50,80,0.1)', tick: '#5d7891', tickMajor: '#14324f', compass: '#14324f',
+           place: '#4a4a4a', apt: '#b0127a', home: '#b0127a', text: '#14324f', textDim: '#2d4f6e', textMute: '#5b7690', faint: '#8297aa',
+           warn: '#c25a00', track: '#b0127a', select: '#c25a00', emergency: '#d10000', card: 'rgba(255,253,245,.93)', label: '#14324f', planeEdge: 'rgba(255,255,255,.95)' },
+      l: { clock: 'top', card: 'card', labels: 'full', rings: 'rings', compass: 'letters', map: 'filled', sweep: false, trails: true, scanlines: false } },
+    phosphor: { name: 'Phosphor', font: 'techno', alt: 'green',
+      c: { outside: '#000000', bg0: '#05170c', bg1: '#010603', land: 'rgba(40,120,60,0.16)', coast: 'rgba(90,230,130,0.6)', lake: 'rgba(0,10,4,0.65)', lakeEdge: 'rgba(90,230,130,0.35)',
+           sweep: '90,255,140', ring: 'rgba(60,200,100,0.34)', ringText: 'rgba(130,255,170,0.75)', axis: 'rgba(60,200,100,0.16)', tick: 'rgba(60,200,100,0.5)', tickMajor: '#7dffaa', compass: '#7dffaa',
+           place: 'rgba(110,225,150,0.65)', apt: '#9dffbf', home: '#b6ffd3', text: '#b6ffd3', textDim: '#7dd99a', textMute: '#4fa86a', faint: '#2f7a45',
+           warn: '#e8ff6a', track: '#e8ff6a', select: '#ffffff', emergency: '#ff5a5a', card: 'rgba(1,8,3,.85)', label: '#b6ffd3', planeEdge: 'rgba(0,0,0,.85)' },
+      l: { clock: 'top', card: 'strip', labels: 'full', rings: 'rings', compass: 'letters', map: 'outline', sweep: true, trails: true, scanlines: true } },
+    amber: { name: 'Amber Tower', font: 'mono', alt: 'amber',
+      c: { outside: '#000000', bg0: '#1b1105', bg1: '#070401', land: 'rgba(160,100,20,0.13)', coast: 'rgba(255,176,60,0.55)', lake: 'rgba(5,3,0,.65)', lakeEdge: 'rgba(255,176,60,.3)',
+           sweep: '255,176,60', ring: 'rgba(255,170,50,0.26)', ringText: 'rgba(255,190,90,.75)', axis: 'rgba(255,170,50,.11)', tick: 'rgba(255,170,50,.45)', tickMajor: '#ffc46b', compass: '#ffc46b',
+           place: 'rgba(255,190,100,.6)', apt: '#ffd28a', home: '#ffe2b0', text: '#ffe2b0', textDim: '#e7b56a', textMute: '#b0823d', faint: '#7a5726',
+           warn: '#ffffff', track: '#ffffff', select: '#ffffff', emergency: '#ff4a3a', card: 'rgba(8,5,1,.85)', label: '#ffd79a', planeEdge: 'rgba(0,0,0,.85)' },
+      l: { clock: 'top', card: 'card', labels: 'callsign', rings: 'rings', compass: 'hsi', map: 'outline', sweep: true, trails: false, scanlines: true } },
+    devils: { name: 'Red Devils', font: 'display', alt: 'gold',
+      c: { outside: '#000000', bg0: '#300609', bg1: '#0b0102', land: 'rgba(255,255,255,0.07)', coast: 'rgba(255,214,120,0.5)', lake: 'rgba(12,0,1,.7)', lakeEdge: 'rgba(255,214,120,.28)',
+           sweep: '230,40,30', ring: 'rgba(255,214,120,0.18)', ringText: 'rgba(255,214,120,.7)', axis: 'rgba(255,214,120,.07)', tick: 'rgba(255,214,120,.4)', tickMajor: '#ffd678', compass: '#ffd678',
+           place: 'rgba(255,255,255,.55)', apt: '#ffd678', home: '#ffffff', text: '#ffffff', textDim: '#f3c9c4', textMute: '#c98d86', faint: '#8a4b45',
+           warn: '#ffd678', track: '#ffd678', select: '#ffffff', emergency: '#fff04a', card: 'rgba(22,0,3,.85)', label: '#ffffff', planeEdge: 'rgba(0,0,0,.85)' },
+      l: { clock: 'top', card: 'card', labels: 'full', rings: 'rings', compass: 'letters', map: 'filled', sweep: true, trails: true, scanlines: false } },
+    minimal: { name: 'Minimal', font: 'sans', alt: 'white',
+      c: { outside: '#000000', bg0: '#000000', bg1: '#000000', land: 'rgba(255,255,255,0.06)', coast: 'rgba(255,255,255,0.32)', lake: 'rgba(0,0,0,1)', lakeEdge: 'rgba(255,255,255,.16)',
+           sweep: '', ring: 'rgba(255,255,255,0.09)', ringText: 'rgba(255,255,255,.4)', axis: 'rgba(0,0,0,0)', tick: 'rgba(255,255,255,.25)', tickMajor: 'rgba(255,255,255,.75)', compass: 'rgba(255,255,255,.75)',
+           place: 'rgba(255,255,255,.4)', apt: 'rgba(255,255,255,.6)', home: '#ffffff', text: '#ffffff', textDim: '#c4c4c4', textMute: '#8a8a8a', faint: '#555555',
+           warn: '#ffcc00', track: '#5ac8fa', select: '#ffcc00', emergency: '#ff3b30', card: 'rgba(0,0,0,.72)', label: '#ffffff', planeEdge: 'rgba(0,0,0,.9)' },
+      l: { clock: 'centre', card: 'strip', labels: 'callsign', rings: 'ticks', compass: 'off', map: 'outline', sweep: false, trails: false, scanlines: false } }
+  };
+  var LAYOUT_OPTIONS = {
+    clock:   [['top', 'Top'], ['centre', 'Centre'], ['off', 'Off']],
+    card:    [['card', 'Card'], ['strip', 'Strip'], ['off', 'Off']],
+    labels:  [['full', 'Full'], ['callsign', 'Callsign'], ['off', 'Off']],
+    rings:   [['rings', 'Rings'], ['ticks', 'Ticks'], ['off', 'Off']],
+    compass: [['letters', 'N E S W'], ['hsi', 'Headings'], ['off', 'Off']],
+    map:     [['filled', 'Filled'], ['outline', 'Outline'], ['off', 'Off']]
+  };
+  var THEME_KEY = 'overhead-radar-theme';
+  var themeState = { preset: 'scope', font: null, alt: null, l: {} };
+  try { var ts0 = JSON.parse(localStorage.getItem(THEME_KEY) || 'null'); if (ts0 && THEMES[ts0.preset]) themeState = { preset: ts0.preset, font: ts0.font || null, alt: ts0.alt || null, l: ts0.l || {} }; } catch (e) { /* ignore */ }
+  if (THEMES[params.get('theme')]) themeState = { preset: params.get('theme'), font: null, alt: null, l: {} };
+  var TH = null, C = null, L = null, F = null, ALT_STOPS = null;
+  function applyTheme(save) {
+    var base = THEMES[themeState.preset] || THEMES.scope;
+    TH = base; C = base.c;
+    L = {}; Object.keys(base.l).forEach(function (k) { L[k] = themeState.l[k] != null ? themeState.l[k] : base.l[k]; });
+    F = FONTS[themeState.font || base.font] || FONTS.mono;
+    ALT_STOPS = (ALT_PALETTES[themeState.alt || base.alt] || ALT_PALETTES.spectrum).stops;
+    var rs = document.documentElement.style;
+    rs.setProperty('--outside', C.outside); rs.setProperty('--ctl-bg', C.card); rs.setProperty('--ctl-fg', C.textDim); rs.setProperty('--ctl-border', C.ring); rs.setProperty('--ctl-hi', C.select);
+    document.body.style.background = C.outside;
+    scanPattern = null;
+    if (document.fonts && document.fonts.load) {
+      [F.bold, F.reg].forEach(function (w) { document.fonts.load(w + ' 20px ' + F.stack).catch(function () { /* falls back to the next font in the stack */ }); });
+    }
+    if (save) { try { localStorage.setItem(THEME_KEY, JSON.stringify(themeState)); } catch (e) { /* ignore */ } }
+    if (typeof renderStudio === 'function') renderStudio();
+  }
+  function fnt(px, bold) { return (bold ? F.bold : F.reg) + ' ' + px.toFixed(1) + 'px ' + F.stack; }
+
   // ---------- drawing ----------
   var canvas = document.getElementById('scope');
   var ctx = canvas.getContext('2d');
-  var S = 0, dpr = 1;
+  var S = 0, dpr = 1, STUDIO_W = 360;
+  // where the appearance panel lives: beside the radar on wide windows, below it on tall ones,
+  // and as a pop-up (from settings) on square screens like the round display
+  function studioMode() {
+    var w = window.innerWidth, h = window.innerHeight;
+    if (w >= 760 && w - h >= 260) return 'right';
+    if (h - w >= 180) return 'below';
+    return 'none';
+  }
   function resize() {
     dpr = window.devicePixelRatio || 1;
-    S = Math.min(window.innerWidth, window.innerHeight);
+    var mode = studioMode();
+    document.body.classList.toggle('studio', mode === 'right');
+    document.body.classList.toggle('studio-below', mode === 'below');
+    S = mode === 'right' ? Math.min(window.innerWidth - STUDIO_W, window.innerHeight) : mode === 'below' ? window.innerWidth : Math.min(window.innerWidth, window.innerHeight);
     canvas.style.width = canvas.style.height = S + 'px';
     canvas.width = canvas.height = Math.round(S * dpr);
+    scanPattern = null;
   }
   window.addEventListener('resize', resize);
-  resize();
 
-  var ALT_STOPS = [[0, [61, 220, 132]], [10000, [198, 232, 74]], [20000, [255, 181, 71]], [30000, [255, 107, 107]], [40000, [209, 107, 255]]];
   function altColor(alt, ground) {
-    if (ground || alt == null) return 'rgb(138,143,152)';
+    if (ground || alt == null) return C.faint;
     var a = Math.max(0, Math.min(40000, alt));
     for (var i = 1; i < ALT_STOPS.length; i++) {
       if (a <= ALT_STOPS[i][0]) {
@@ -414,7 +601,13 @@
         return 'rgb(' + [0, 1, 2].map(function (k) { return Math.round(lo[1][k] + (hi[1][k] - lo[1][k]) * t); }).join(',') + ')';
       }
     }
-    return 'rgb(209,107,255)';
+    var last = ALT_STOPS[ALT_STOPS.length - 1][1];
+    return 'rgb(' + last.join(',') + ')';
+  }
+  function withAlpha(col, a) {
+    if (col.indexOf('rgb(') === 0) return col.replace('rgb(', 'rgba(').replace(')', ',' + a + ')');
+    if (col[0] === '#' && col.length === 7) return 'rgba(' + parseInt(col.slice(1, 3), 16) + ',' + parseInt(col.slice(3, 5), 16) + ',' + parseInt(col.slice(5, 7), 16) + ',' + a + ')';
+    return col;
   }
   function altText(p) {
     if (p.ground) return 'GND';
@@ -426,16 +619,16 @@
 
   // Right half of a plane silhouette pointing up, unit size; mirrored for the left half.
   var PLANE = [[0, -1], [0.1, -0.82], [0.12, -0.3], [0.95, 0.18], [0.95, 0.34], [0.12, 0.12], [0.09, 0.62], [0.38, 0.84], [0.38, 0.96], [0, 0.86]];
-  function drawPlane(x, y, size, track, color) {
+  function drawPlane(x, y, size, trk, color) {
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate((track || 0) * D2R);
+    ctx.rotate((trk || 0) * D2R);
     ctx.beginPath();
     PLANE.forEach(function (p, i) { ctx[i ? 'lineTo' : 'moveTo'](p[0] * size, p[1] * size); });
     for (var i = PLANE.length - 2; i > 0; i--) ctx.lineTo(-PLANE[i][0] * size, PLANE[i][1] * size);
     ctx.closePath();
     ctx.fillStyle = color;
-    ctx.strokeStyle = 'rgba(0,0,0,.8)';
+    ctx.strokeStyle = C.planeEdge;
     ctx.lineWidth = size * 0.12;
     ctx.stroke();
     ctx.fill();
@@ -448,6 +641,17 @@
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
 
+  var scanPattern = null;
+  function scanlines(W) {
+    if (!scanPattern) {
+      var c2 = document.createElement('canvas'), step = Math.max(3, Math.round(dpr * 3));
+      c2.width = 4; c2.height = step;
+      var g2 = c2.getContext('2d'); g2.fillStyle = 'rgba(0,0,0,0.28)'; g2.fillRect(0, 0, 4, Math.max(1, Math.round(dpr)));
+      scanPattern = ctx.createPattern(c2, 'repeat');
+    }
+    ctx.fillStyle = scanPattern; ctx.fillRect(0, 0, W, W);
+  }
+
   function frame() {
     var now = Date.now();
     var W = S * dpr, cx = W / 2, cy = W / 2, R = W / 2 * 0.94;
@@ -458,78 +662,109 @@
 
     // scope background
     var bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-    bg.addColorStop(0, '#0b1f2a'); bg.addColorStop(1, '#03090d');
+    bg.addColorStop(0, C.bg0); bg.addColorStop(1, C.bg1);
     ctx.fillStyle = bg;
     ctx.beginPath(); ctx.arc(cx, cy, W / 2, 0, Math.PI * 2); ctx.fill();
 
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
 
-    // land, coast and lakes
-    if (geoPaths) {
+    // land, coast and lakes (finer outlines when zoomed in)
+    var gp = L.map !== 'off' ? geoFor(range) : null;
+    if (gp) {
       ctx.save();
       ctx.setTransform(k, 0, 0, -k, cx, cy);
-      ctx.fillStyle = 'rgba(70,112,96,0.20)';
-      ctx.fill(geoPaths.land, 'evenodd');
-      ctx.fillStyle = 'rgba(3,12,18,0.55)';
-      ctx.fill(geoPaths.lakes);
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = Math.max(1, u * 0.18) / k;
-      ctx.strokeStyle = 'rgba(110,165,145,0.50)';
-      ctx.stroke(geoPaths.coast);
-      ctx.strokeStyle = 'rgba(110,165,170,0.32)';
-      ctx.stroke(geoPaths.lakes);
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      if (L.map === 'filled') {
+        ctx.fillStyle = C.land; ctx.fill(gp.land, 'evenodd');
+        ctx.fillStyle = C.lake; ctx.fill(gp.lakes);
+      }
+      ctx.lineWidth = Math.max(1, u * 0.16) / k;
+      ctx.strokeStyle = C.coast; ctx.stroke(gp.coast);
+      ctx.lineWidth = Math.max(1, u * 0.12) / k;
+      ctx.strokeStyle = C.lakeEdge; ctx.stroke(gp.lakes);
       ctx.restore();
     }
 
+    // area names
+    if (gp) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = C.faint; ctx.font = fnt(u * 1.7, false);
+      AREAS.forEach(function (ar) {
+        if (range < ar.from || range > ar.to) return;
+        var xy = toXY(ar.lat, ar.lon); if (Math.hypot(xy[0], xy[1]) > range * 0.9) return;
+        var label = ar.id.split('').join(String.fromCharCode(8202));
+        ctx.fillText(label, cx + xy[0] * k, cy - xy[1] * k);
+      });
+    }
+
     // sweep
-    if (!reduceMotion && ctx.createConicGradient) {
+    if (L.sweep && C.sweep && !reduceMotion && ctx.createConicGradient) {
       var sa = (now / 4000 % 1) * Math.PI * 2 - Math.PI / 2, wedge = 0.7;
       var g = ctx.createConicGradient(sa - wedge, cx, cy);
-      g.addColorStop(0, 'rgba(61,220,160,0)');
-      g.addColorStop(wedge / (Math.PI * 2), 'rgba(61,220,160,0.13)');
-      g.addColorStop(wedge / (Math.PI * 2) + 0.0005, 'rgba(61,220,160,0)');
-      g.addColorStop(1, 'rgba(61,220,160,0)');
+      g.addColorStop(0, 'rgba(' + C.sweep + ',0)');
+      g.addColorStop(wedge / (Math.PI * 2), 'rgba(' + C.sweep + ',0.14)');
+      g.addColorStop(wedge / (Math.PI * 2) + 0.0005, 'rgba(' + C.sweep + ',0)');
+      g.addColorStop(1, 'rgba(' + C.sweep + ',0)');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, W);
     }
 
     // range rings
-    ctx.strokeStyle = '#1d3b4a'; ctx.lineWidth = Math.max(1, u * 0.15);
-    ctx.fillStyle = '#5f7c8c'; ctx.font = (u * 2.1) + 'px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.font = fnt(u * 2.1, false); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     for (var r = 1; r <= 4; r++) {
       var rr = R * r / 4;
-      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
-      if (r < 4) ctx.fillText((range * r / 4) + '', cx + rr * Math.cos(-0.35) + u * 0.6, cy + rr * Math.sin(-0.35));
+      ctx.strokeStyle = C.ring; ctx.lineWidth = Math.max(1, u * 0.15);
+      if (L.rings === 'rings') { ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke(); }
+      else if (L.rings === 'ticks' && r < 4) {
+        ctx.strokeStyle = C.tick; ctx.beginPath();
+        [0, 90, 180, 270].forEach(function (a) {
+          var t = a * D2R, ox = Math.cos(t), oy = Math.sin(t);
+          ctx.moveTo(cx + ox * rr - oy * u * 0.8, cy + oy * rr + ox * u * 0.8); ctx.lineTo(cx + ox * rr + oy * u * 0.8, cy + oy * rr - ox * u * 0.8);
+        });
+        ctx.stroke();
+      }
+      if (L.rings !== 'off' && r < 4) { ctx.fillStyle = C.ringText; ctx.fillText((range * r / 4) + '', cx + rr * Math.cos(-0.35) + u * 0.6, cy + rr * Math.sin(-0.35)); }
     }
-    ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
-    ctx.strokeStyle = 'rgba(29,59,74,.6)'; ctx.stroke();
+    if (L.rings === 'rings') {
+      ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R);
+      ctx.strokeStyle = C.axis; ctx.stroke();
+    }
 
-    // places
-    ctx.font = (u * 2) + 'px ' + FONT; ctx.textAlign = 'left';
+    // big clock behind the traffic
+    var d = new Date(now);
+    var hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+    if (L.clock === 'centre') {
+      ctx.save(); ctx.globalAlpha = 0.2; ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = fnt(u * 19, true); ctx.fillText(hh + ':' + mm, cx, cy); ctx.restore();
+    }
+
+    // places (names are drawn later, only where they don't collide with aircraft labels)
+    var pendingPlaces = [];
+    ctx.font = fnt(u * 2, false); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     PLACES.forEach(function (pl) {
       var xy = toXY(pl.lat, pl.lon);
       var dd = Math.hypot(xy[0], xy[1]);
       if (dd > range * 0.97 || dd < range * 0.02) return;
+      if (pl.minRange && range > pl.minRange) return;
       var px = cx + xy[0] * k, py = cy - xy[1] * k;
-      ctx.strokeStyle = ctx.fillStyle = pl.kind === 'apt' ? '#6aa7c4' : '#4b6675';
+      ctx.strokeStyle = ctx.fillStyle = pl.kind === 'apt' ? C.apt : C.place;
       ctx.lineWidth = Math.max(1, u * 0.2);
       if (pl.kind === 'apt') { ctx.beginPath(); ctx.arc(px, py, u * 0.8, 0, Math.PI * 2); ctx.stroke(); }
-      else { ctx.fillRect(px - u * 0.35, py - u * 0.35, u * 0.7, u * 0.7); }
-      ctx.fillText(pl.id, px + u * 1.2, py);
+      else { ctx.beginPath(); ctx.arc(px, py, u * 0.4, 0, Math.PI * 2); ctx.fill(); }
+      pendingPlaces.push({ id: pl.id, x: px + u * 1.2, y: py, col: ctx.fillStyle });
     });
 
     // home marker
-    ctx.strokeStyle = '#d8e6ee'; ctx.lineWidth = Math.max(1, u * 0.25);
+    ctx.strokeStyle = C.home; ctx.lineWidth = Math.max(1, u * 0.25);
     ctx.beginPath(); ctx.moveTo(cx - u * 1.4, cy); ctx.lineTo(cx + u * 1.4, cy); ctx.moveTo(cx, cy - u * 1.4); ctx.lineTo(cx, cy + u * 1.4); ctx.stroke();
 
     // aircraft
     var list = [];
     planes.forEach(function (p) {
       var pos = posNow(p, now);
-      var d = Math.hypot(pos[0], pos[1]);
-      if (d > range * 1.08) return;
-      list.push({ p: p, x: pos[0], y: pos[1], d: d });
+      var dist = Math.hypot(pos[0], pos[1]);
+      if (dist > range * 1.08) return;
+      list.push({ p: p, x: pos[0], y: pos[1], d: dist });
     });
     list.sort(function (a, b) { return (a.p.alt || 0) - (b.p.alt || 0); });
     var nearest = null;
@@ -537,18 +772,20 @@
     nearestHex = nearest ? nearest.p.hex : null;
 
     hitTargets = [];
-    var boxes = [[cx - R * 0.36, cy - R * 0.78, cx + R * 0.36, cy - R * 0.46]]; // clock block
-    if (nearest) boxes.push([cx - R * 0.42, cy + R * 0.64, cx + R * 0.42, cy + R * 0.87]); // nearest card
+    var boxes = [];
+    if (L.clock === 'top') boxes.push([cx - R * 0.36, cy - R * 0.78, cx + R * 0.36, cy - R * 0.46]);
+    else boxes.push([cx - R * 0.3, cy - R * 0.68, cx + R * 0.3, cy - R * 0.52]);
+    if (L.card === 'card') boxes.push([cx - R * 0.42, cy + R * 0.64, cx + R * 0.42, cy + R * 0.87]);
+    if (L.card === 'strip') boxes.push([cx - R * 0.45, cy + R * 0.7, cx + R * 0.45, cy + R * 0.86]);
     function overlaps(b) {
       return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; });
     }
     list.forEach(function (o) {
       var p = o.p, col = altColor(p.alt, p.ground), emerg = isEmergency(p.squawk);
-      // trail
-      if (p.trail.length > 1) {
+      if (L.trails && p.trail.length > 1) {
         ctx.lineWidth = Math.max(1, u * 0.25);
         for (var i = 1; i < p.trail.length; i++) {
-          ctx.strokeStyle = col.replace('rgb', 'rgba').replace(')', ',' + (0.08 + 0.4 * i / p.trail.length) + ')');
+          ctx.strokeStyle = withAlpha(col, 0.08 + 0.4 * i / p.trail.length);
           ctx.beginPath();
           ctx.moveTo(cx + p.trail[i - 1][0] * k, cy - p.trail[i - 1][1] * k);
           ctx.lineTo(cx + p.trail[i][0] * k, cy - p.trail[i][1] * k);
@@ -558,131 +795,164 @@
       var px = cx + o.x * k, py = cy - o.y * k;
       hitTargets.push({ hex: p.hex, x: px / dpr, y: py / dpr });
       if (track && isTracked(p)) {
-        ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = Math.max(2, u * 0.45); ctx.setLineDash([u, u * 0.8]);
+        ctx.strokeStyle = C.track; ctx.lineWidth = Math.max(2, u * 0.45); ctx.setLineDash([u, u * 0.8]);
         ctx.beginPath(); ctx.arc(px, py, u * 4.6, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       }
       if (p.hex === selectedHex) {
-        ctx.strokeStyle = '#ffb547'; ctx.lineWidth = Math.max(2, u * 0.45);
+        ctx.strokeStyle = C.select; ctx.lineWidth = Math.max(2, u * 0.45);
         ctx.beginPath(); ctx.arc(px, py, u * 4, 0, Math.PI * 2); ctx.stroke();
       }
       if (o === nearest || emerg) {
-        ctx.strokeStyle = emerg ? (Math.floor(now / 400) % 2 ? '#ff3b3b' : '#ffffff') : 'rgba(255,255,255,.75)';
+        ctx.strokeStyle = emerg ? (Math.floor(now / 400) % 2 ? C.emergency : C.text) : withAlpha(C.text, 0.75);
         ctx.lineWidth = Math.max(1, u * 0.3);
         ctx.beginPath(); ctx.arc(px, py, u * 3.2, 0, Math.PI * 2); ctx.stroke();
       }
-      drawPlane(px, py, u * 1.9, p.track, emerg ? '#ff3b3b' : col);
+      drawPlane(px, py, u * 1.9, p.track, emerg ? C.emergency : col);
       boxes.push([px - u * 2, py - u * 2, px + u * 2, py + u * 2]);
     });
 
     // labels, most important first: emergencies, nearest, then closest to home.
-    // Each tries right/left, above/below and is dropped if every spot is taken.
-    list.slice().sort(function (a, b) {
-      var pa = isEmergency(a.p.squawk) ? 0 : a === nearest ? 1 : 2, pb = isEmergency(b.p.squawk) ? 0 : b === nearest ? 1 : 2;
-      return pa - pb || a.d - b.d;
-    }).forEach(function (o) {
-      var p = o.p, col = altColor(p.alt, p.ground), emerg = isEmergency(p.squawk);
-      var px = cx + o.x * k, py = cy - o.y * k;
-      var l1 = p.flight + (emerg ? ' ' + p.squawk : ''), l2 = altText(p) + vrArrow(p.vr) + ' ' + Math.round(p.gs) + 'kt';
-      ctx.font = '600 ' + (u * 2.3) + 'px ' + FONT;
-      var tw = Math.max(ctx.measureText(l1).width, ctx.measureText(l2).width * 0.9) + u * 0.5, th = u * 5;
-      var spots = [[1, -1], [-1, -1], [1, 1], [-1, 1]], chosen = null;
-      if (px > cx + R * 0.6) spots = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
-      for (var si = 0; si < spots.length && !chosen; si++) {
-        var bx = spots[si][0] > 0 ? px + u * 2.6 : px - u * 2.6 - tw;
-        var by = spots[si][1] < 0 ? py - u * 3 : py + u * 1.2;
-        var box = [bx, by, bx + tw, by + th];
-        var inside = [[box[0], box[1]], [box[2], box[1]], [box[0], box[3]], [box[2], box[3]]].every(function (c) { return Math.hypot(c[0] - cx, c[1] - cy) < R * 0.97; });
-        if (inside && !overlaps(box)) chosen = box;
-      }
-      var must = o === nearest || emerg;
-      if (!chosen && must) { var bx0 = px + u * 2.6, by0 = py - u * 3; chosen = [bx0, by0, bx0 + tw, by0 + th]; }
-      if (chosen) {
-        boxes.push(chosen);
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillStyle = emerg ? '#ff6b6b' : '#e6f0f5';
-        ctx.fillText(l1, chosen[0], chosen[1] + u * 2.1);
-        ctx.font = (u * 2) + 'px ' + FONT;
-        ctx.fillStyle = col;
-        ctx.fillText(l2, chosen[0], chosen[1] + u * 4.5);
-      }
+    if (L.labels !== 'off') {
+      list.slice().sort(function (a, b) {
+        var pa = isEmergency(a.p.squawk) ? 0 : a === nearest ? 1 : 2, pb = isEmergency(b.p.squawk) ? 0 : b === nearest ? 1 : 2;
+        return pa - pb || a.d - b.d;
+      }).forEach(function (o) {
+        var p = o.p, col = altColor(p.alt, p.ground), emerg = isEmergency(p.squawk);
+        var px = cx + o.x * k, py = cy - o.y * k;
+        var two = L.labels === 'full';
+        var l1 = p.flight + (emerg ? ' ' + p.squawk : ''), l2 = altText(p) + vrArrow(p.vr) + ' ' + Math.round(p.gs) + 'kt';
+        ctx.font = fnt(u * 2.3, true);
+        var tw = Math.max(ctx.measureText(l1).width, two ? ctx.measureText(l2).width * 0.9 : 0) + u * 0.5, th = two ? u * 5 : u * 2.7;
+        var spots = [[1, -1], [-1, -1], [1, 1], [-1, 1]], chosen = null;
+        if (px > cx + R * 0.6) spots = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+        for (var si = 0; si < spots.length && !chosen; si++) {
+          var bx = spots[si][0] > 0 ? px + u * 2.6 : px - u * 2.6 - tw;
+          var by = spots[si][1] < 0 ? py - u * 3 : py + u * 1.2;
+          var box = [bx, by, bx + tw, by + th];
+          var inside = [[box[0], box[1]], [box[2], box[1]], [box[0], box[3]], [box[2], box[3]]].every(function (c) { return Math.hypot(c[0] - cx, c[1] - cy) < R * 0.97; });
+          if (inside && !overlaps(box)) chosen = box;
+        }
+        var must = o === nearest || emerg;
+        if (!chosen && must) { var bx0 = px + u * 2.6, by0 = py - u * 3; chosen = [bx0, by0, bx0 + tw, by0 + th]; }
+        if (chosen) {
+          boxes.push(chosen);
+          ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+          ctx.fillStyle = emerg ? C.emergency : C.label;
+          ctx.fillText(l1, chosen[0], chosen[1] + u * 2.1);
+          if (two) { ctx.font = fnt(u * 2, false); ctx.fillStyle = col; ctx.fillText(l2, chosen[0], chosen[1] + u * 4.5); }
+        }
+      });
+    }
+    ctx.font = fnt(u * 2, false); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    pendingPlaces.forEach(function (pl) {
+      var w = ctx.measureText(pl.id).width, box = [pl.x, pl.y - u * 1.1, pl.x + w, pl.y + u * 1.1];
+      if (overlaps(box)) return;
+      boxes.push(box); ctx.fillStyle = pl.col; ctx.fillText(pl.id, pl.x, pl.y);
     });
+    if (L.scanlines) scanlines(W);
     ctx.restore();
 
-    // compass ticks and letters
-    for (var a = 0; a < 360; a += 10) {
-      var t = (a - 90) * D2R, len = a % 30 ? u * 0.9 : u * 1.8;
-      ctx.strokeStyle = a % 90 ? '#2c5568' : '#8fb3c4';
-      ctx.lineWidth = Math.max(1, u * 0.2);
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(t) * R, cy + Math.sin(t) * R);
-      ctx.lineTo(cx + Math.cos(t) * (R + len), cy + Math.sin(t) * (R + len));
-      ctx.stroke();
+    // compass
+    if (L.compass !== 'off') {
+      for (var a = 0; a < 360; a += 10) {
+        var t = (a - 90) * D2R, len = a % 30 ? u * 0.9 : u * 1.8;
+        ctx.strokeStyle = a % 90 ? C.tick : C.tickMajor;
+        ctx.lineWidth = Math.max(1, u * 0.2);
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(t) * R, cy + Math.sin(t) * R);
+        ctx.lineTo(cx + Math.cos(t) * (R + len), cy + Math.sin(t) * (R + len));
+        ctx.stroke();
+      }
+      ctx.fillStyle = C.compass; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var marks = L.compass === 'hsi'
+        ? [['N', 0], ['3', 30], ['6', 60], ['E', 90], ['12', 120], ['15', 150], ['S', 180], ['21', 210], ['24', 240], ['W', 270], ['30', 300], ['33', 330]]
+        : [['N', 0], ['E', 90], ['S', 180], ['W', 270]];
+      marks.forEach(function (c) {
+        var t = (c[1] - 90) * D2R, big = c[1] % 90 === 0;
+        ctx.font = fnt(u * (big ? 2.4 : 1.9), big);
+        ctx.fillText(c[0], cx + Math.cos(t) * (R - u * 3), cy + Math.sin(t) * (R - u * 3));
+      });
     }
-    ctx.fillStyle = '#8fb3c4'; ctx.font = '600 ' + (u * 2.4) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(function (c) {
-      var t = (c[1] - 90) * D2R;
-      ctx.fillText(c[0], cx + Math.cos(t) * (R - u * 3), cy + Math.sin(t) * (R - u * 3));
-    });
 
-    // top: clock + summary
-    var d = new Date(now);
-    var hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#e9f2f6'; ctx.font = '600 ' + (u * 6.5) + 'px ' + FONT;
-    ctx.fillText(hh + ':' + mm, cx, cy - R * 0.62);
+    // clock + summary
     var stale = now - status.lastOk > 30000;
-    ctx.font = (u * 2.1) + 'px ' + FONT;
-    ctx.fillStyle = stale ? '#ffb547' : '#7f97a6';
     var airborne = list.filter(function (o) { return !o.p.ground; }).length;
     var sub = stale ? (status.lastOk ? 'FEED STALE' : 'CONNECTING…') : airborne + ' AIRCRAFT · ' + range + ' NM';
-    ctx.fillText(sub, cx, cy - R * 0.55);
-    ctx.fillStyle = status.source === 'DEMO' ? '#ffb547' : '#4b6675';
-    ctx.fillText(CFG.name + (status.source ? ' · ' + status.source.toUpperCase() : ''), cx, cy - R * 0.49);
+    var where = CFG.name + (status.source ? ' · ' + status.source.toUpperCase() : '');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    if (L.clock === 'top') {
+      ctx.fillStyle = C.text; ctx.font = fnt(u * 6.5, true);
+      ctx.fillText(hh + ':' + mm, cx, cy - R * 0.62);
+      ctx.font = fnt(u * 2.1, false);
+      ctx.fillStyle = stale ? C.warn : C.textMute; ctx.fillText(sub, cx, cy - R * 0.55);
+      ctx.fillStyle = status.source === 'DEMO' ? C.warn : C.faint; ctx.fillText(where, cx, cy - R * 0.49);
+    } else {
+      ctx.font = fnt(u * 2.1, false);
+      ctx.fillStyle = stale ? C.warn : C.textMute; ctx.fillText(sub, cx, cy - R * 0.62);
+      ctx.fillStyle = status.source === 'DEMO' ? C.warn : C.faint; ctx.fillText(where, cx, cy - R * 0.56);
+    }
 
-    // bottom: tracked flight card, or the nearest aircraft
+    // bottom: tracked flight, or the nearest aircraft
     var ts = track ? trackSummary(now) : null;
     trackCardRect = null;
-    if (ts) {
+    if (L.card === 'card' && ts) {
       var tcw = R * 0.84, tch = R * 0.23, tx0 = cx - tcw / 2, ty0 = cy + R * 0.64;
       trackCardRect = [tx0 / dpr, ty0 / dpr, (tx0 + tcw) / dpr, (ty0 + tch) / dpr];
-      ctx.fillStyle = 'rgba(3,9,13,.8)'; roundRect(tx0, ty0, tcw, tch, u * 2); ctx.fill();
-      ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = Math.max(1, u * 0.3); roundRect(tx0, ty0, tcw, tch, u * 2); ctx.stroke();
+      ctx.fillStyle = C.card; roundRect(tx0, ty0, tcw, tch, u * 2); ctx.fill();
+      ctx.strokeStyle = C.track; ctx.lineWidth = Math.max(1, u * 0.3); roundRect(tx0, ty0, tcw, tch, u * 2); ctx.stroke();
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#7dd3fc'; ctx.font = (u * 1.9) + 'px ' + FONT;
+      ctx.fillStyle = C.track; ctx.font = fnt(u * 1.9, false);
       ctx.fillText(ts.label, cx, ty0 + tch * 0.2);
-      ctx.fillStyle = '#ffffff'; ctx.font = '700 ' + (u * 3.2) + 'px ' + FONT;
+      ctx.fillStyle = C.text; ctx.font = fnt(u * 3.2, true);
       ctx.fillText(ts.title, cx, ty0 + tch * 0.46);
       var bw = tcw * 0.78, bx = cx - bw / 2, by = ty0 + tch * 0.56, bh = u * 1.2;
-      ctx.fillStyle = '#10242f'; roundRect(bx, by, bw, bh, bh / 2); ctx.fill();
-      if (ts.pct != null) { ctx.fillStyle = '#7dd3fc'; roundRect(bx, by, Math.max(bh, bw * ts.pct), bh, bh / 2); ctx.fill(); }
-      ctx.fillStyle = ts.warn ? '#ffb547' : '#9fb6c3'; ctx.font = (u * 2.1) + 'px ' + FONT;
+      ctx.fillStyle = withAlpha(C.textMute, 0.25); roundRect(bx, by, bw, bh, bh / 2); ctx.fill();
+      if (ts.pct != null) { ctx.fillStyle = C.track; roundRect(bx, by, Math.max(bh, bw * ts.pct), bh, bh / 2); ctx.fill(); }
+      ctx.fillStyle = ts.warn ? C.warn : C.textDim; ctx.font = fnt(u * 2.1, false);
       ctx.fillText(ts.line, cx, ty0 + tch * 0.9);
-    } else if (nearest) {
+    } else if (L.card === 'card' && nearest) {
       var p = nearest.p, cw = R * 0.84, ch = R * 0.23, x0 = cx - cw / 2, y0 = cy + R * 0.64;
-      ctx.fillStyle = 'rgba(3,9,13,.72)';
-      roundRect(x0, y0, cw, ch, u * 2); ctx.fill();
+      ctx.fillStyle = C.card; roundRect(x0, y0, cw, ch, u * 2); ctx.fill();
       ctx.strokeStyle = altColor(p.alt, p.ground); ctx.lineWidth = Math.max(1, u * 0.3);
       roundRect(x0, y0, cw, ch, u * 2); ctx.stroke();
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#7f97a6'; ctx.font = (u * 1.9) + 'px ' + FONT;
+      ctx.fillStyle = C.textMute; ctx.font = fnt(u * 1.9, false);
       ctx.fillText(nearest.d < 2 ? 'OVERHEAD NOW' : 'NEAREST', cx, y0 + ch * 0.2);
-      ctx.fillStyle = '#ffffff'; ctx.font = '700 ' + (u * 3.6) + 'px ' + FONT;
+      ctx.fillStyle = C.text; ctx.font = fnt(u * 3.6, true);
       ctx.fillText(p.flight + (p.type ? ' ' + p.type : ''), cx, y0 + ch * 0.48);
-      ctx.fillStyle = altColor(p.alt, p.ground); ctx.font = '600 ' + (u * 2.5) + 'px ' + FONT;
+      ctx.fillStyle = altColor(p.alt, p.ground); ctx.font = fnt(u * 2.5, true);
       ctx.fillText(altText(p) + vrArrow(p.vr) + '  ' + Math.round(p.gs) + ' kt  ' + (p.track != null ? String(Math.round(p.track)).padStart(3, '0') + '°' : ''), cx, y0 + ch * 0.7);
-      ctx.fillStyle = '#9fb6c3'; ctx.font = (u * 2.1) + 'px ' + FONT;
+      ctx.fillStyle = C.textDim; ctx.font = fnt(u * 2.1, false);
       ctx.fillText(nearest.d.toFixed(1) + ' nm ' + bearingName(nearest.x, nearest.y) + (p.reg ? '  ·  ' + p.reg : ''), cx, y0 + ch * 0.9);
+    } else if (L.card === 'strip' && (ts || nearest)) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      var y1 = cy + R * 0.76, y2 = cy + R * 0.82;
+      if (ts) {
+        ctx.fillStyle = C.track; ctx.font = fnt(u * 2.8, true); ctx.fillText(ts.title, cx, y1);
+        ctx.fillStyle = ts.warn ? C.warn : C.textDim; ctx.font = fnt(u * 2, false); ctx.fillText(ts.line, cx, y2);
+        if (ts.pct != null) {
+          var sw = R * 0.5; ctx.fillStyle = withAlpha(C.textMute, 0.3); ctx.fillRect(cx - sw / 2, y1 + u * 0.8, sw, u * 0.5);
+          ctx.fillStyle = C.track; ctx.fillRect(cx - sw / 2, y1 + u * 0.8, sw * ts.pct, u * 0.5);
+        }
+        trackCardRect = [(cx - R * 0.45) / dpr, (y1 - u * 3) / dpr, (cx + R * 0.45) / dpr, (y2 + u) / dpr];
+      } else {
+        var q = nearest.p;
+        ctx.fillStyle = C.text; ctx.font = fnt(u * 2.8, true);
+        ctx.fillText((nearest.d < 2 ? 'OVERHEAD  ' : '') + q.flight + (q.type ? ' ' + q.type : ''), cx, y1);
+        ctx.fillStyle = C.textDim; ctx.font = fnt(u * 2, false);
+        ctx.fillText(altText(q) + vrArrow(q.vr) + ' · ' + Math.round(q.gs) + ' kt · ' + nearest.d.toFixed(1) + ' nm ' + bearingName(nearest.x, nearest.y), cx, y2);
+      }
     }
 
-    if (geoPaths) {
+    if (gp) {
       ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = '#3b5563'; ctx.font = (u * 1.4) + 'px ' + FONT;
+      ctx.fillStyle = C.faint; ctx.font = fnt(u * 1.4, false);
       ctx.fillText('© OpenStreetMap', cx - R * 0.08, cy + R * 0.92);
     }
     if (picking) {
-      ctx.fillStyle = 'rgba(3,9,13,.85)';
+      ctx.fillStyle = C.card;
       roundRect(cx - R * 0.5, cy - R * 0.36, R, R * 0.14, u * 1.5); ctx.fill();
-      ctx.fillStyle = '#ffb547'; ctx.font = '600 ' + (u * 2.4) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = C.warn; ctx.font = fnt(u * 2.4, true); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('TAP THE NEW CENTRE', cx, cy - R * 0.29);
     }
 
@@ -713,11 +983,13 @@
   });
   document.addEventListener('keydown', function (e) {
     if (!panel.hidden) { if (e.key === 'Escape') closeSettings(); return; }
+    if (!studio.hidden && studioMode() === 'none' && e.key === 'Escape') { closeStudio(); return; }
     if (!placesPanel.hidden) { if (e.key === 'Escape' || e.key === 'l' || e.key === 'L') closePlaces(); return; }
     if (!detail.hidden) { if (e.key === 'Escape' || e.key === 'Enter') closeDetail(); return; }
     if (!trackPanel.hidden) { if (e.key === 'Escape') trackPanel.hidden = true; return; }
     if (!progress.hidden) { if (e.key === 'Escape' || e.key === 'Enter') closeProgress(); return; }
     if (e.key === 't' || e.key === 'T') { e.preventDefault(); openTrackPanel(); return; }
+    if ((e.key === 'a' || e.key === 'A') && studioMode() === 'none') { e.preventDefault(); if (studio.hidden) openStudio(); else closeStudio(); return; }
     if (e.key === 'Escape') { picking = false; selectedHex = null; }
     if (e.key === 's' || e.key === 'S') { e.preventDefault(); openSettings(); }
     if (e.key === 'l' || e.key === 'L') { e.preventDefault(); openPlaces(); }
@@ -794,6 +1066,85 @@
   placesPanel.addEventListener('click', function (e) { if (e.target === placesPanel) closePlaces(); });
   document.getElementById('zoom-in').addEventListener('click', function () { setRange(Math.max(0, CFG.rangeIdx - 1)); });
   document.getElementById('zoom-out').addEventListener('click', function () { setRange(Math.min(CFG.ranges.length - 1, CFG.rangeIdx + 1)); });
+
+  // ---------- appearance studio ----------
+  var studio = document.getElementById('studio'), studioBody = document.getElementById('studio-body');
+  function el(tag, attrs, text) {
+    var e = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { if (k === 'style') e.style.cssText = attrs[k]; else e.setAttribute(k, attrs[k]); });
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function setTheme(fn) { fn(); applyTheme(true); }
+  function renderStudio() {
+    if (!studioBody) return;
+    var base = THEMES[themeState.preset];
+    studioBody.innerHTML = '';
+    var sec = function (title) { var d = el('div', { class: 'st-sec' }); d.appendChild(el('h3', {}, title)); studioBody.appendChild(d); return d; };
+
+    var s1 = sec('Theme'), grid = el('div', { class: 'st-presets' });
+    Object.keys(THEMES).forEach(function (id) {
+      var t = THEMES[id], b = el('button', { type: 'button', class: 'st-preset', 'aria-pressed': String(themeState.preset === id) });
+      var dot = el('span', { class: 'st-dot', style: 'background: radial-gradient(circle, ' + t.c.bg0 + ', ' + t.c.bg1 + ')' });
+      dot.appendChild(el('i', { style: 'left:4px;top:30px;width:30px;height:20px;background:' + (t.c.land.indexOf('rgba') === 0 ? t.c.coast : t.c.land) + ';opacity:.7;border-radius:40% 60% 50% 50%' }));
+      dot.appendChild(el('i', { style: 'inset:8px;border:1px solid ' + t.c.ring }));
+      var pal = (ALT_PALETTES[t.alt] || ALT_PALETTES.spectrum).stops;
+      dot.appendChild(el('i', { style: 'left:30px;top:14px;width:8px;height:8px;background:rgb(' + pal[pal.length - 1][1].join(',') + ')' }));
+      dot.appendChild(el('i', { style: 'left:16px;top:24px;width:6px;height:6px;background:' + t.c.track }));
+      b.appendChild(dot); b.appendChild(el('span', { style: "font-family:" + FONTS[t.font].stack.replace(/"/g, "'") }, t.name));
+      b.addEventListener('click', function () { setTheme(function () { themeState = { preset: id, font: null, alt: null, l: {} }; }); });
+      grid.appendChild(b);
+    });
+    s1.appendChild(grid);
+
+    var s2 = sec('Font'), seg2 = el('div', { class: 'st-seg' }), curFont = themeState.font || base.font;
+    Object.keys(FONTS).forEach(function (id) {
+      var b = el('button', { type: 'button', 'aria-pressed': String(curFont === id), style: 'font-family:' + FONTS[id].stack.replace(/"/g, "'") + ';font-weight:' + FONTS[id].bold }, FONTS[id].label);
+      b.addEventListener('click', function () { setTheme(function () { themeState.font = id; }); });
+      seg2.appendChild(b);
+    });
+    s2.appendChild(seg2);
+
+    var s3 = sec('Aircraft colours'), seg3 = el('div', { class: 'st-seg' }), curAlt = themeState.alt || base.alt;
+    Object.keys(ALT_PALETTES).forEach(function (id) {
+      var st = ALT_PALETTES[id].stops, grad = 'linear-gradient(90deg,' + st.map(function (q) { return 'rgb(' + q[1].join(',') + ')'; }).join(',') + ')';
+      var b = el('button', { type: 'button', 'aria-pressed': String(curAlt === id) });
+      b.appendChild(el('span', { class: 'st-sw', style: 'background:' + grad }));
+      b.appendChild(document.createTextNode(ALT_PALETTES[id].label));
+      b.addEventListener('click', function () { setTheme(function () { themeState.alt = id; }); });
+      seg3.appendChild(b);
+    });
+    s3.appendChild(seg3);
+
+    var s4 = sec('Layout'), names = { clock: 'Clock', card: 'Info', labels: 'Labels', rings: 'Rings', compass: 'Compass', map: 'Map' };
+    Object.keys(LAYOUT_OPTIONS).forEach(function (key) {
+      var row = el('div', { class: 'st-row' }), seg = el('div', { class: 'st-seg' });
+      row.appendChild(el('span', {}, names[key]));
+      LAYOUT_OPTIONS[key].forEach(function (o) {
+        var b = el('button', { type: 'button', 'aria-pressed': String(L[key] === o[0]) }, o[1]);
+        b.addEventListener('click', function () { setTheme(function () { themeState.l[key] = o[0]; }); });
+        seg.appendChild(b);
+      });
+      row.appendChild(seg); s4.appendChild(row);
+    });
+
+    var s5 = sec('Effects'), seg5 = el('div', { class: 'st-seg' });
+    [['sweep', 'Radar sweep'], ['trails', 'Trails'], ['scanlines', 'Scanlines']].forEach(function (o) {
+      var b = el('button', { type: 'button', class: 'st-toggle', 'aria-pressed': String(!!L[o[0]]) }, o[1]);
+      b.addEventListener('click', function () { setTheme(function () { themeState.l[o[0]] = !L[o[0]]; }); });
+      seg5.appendChild(b);
+    });
+    s5.appendChild(seg5);
+
+    var foot = el('div', { class: 'st-foot' }), reset = el('button', { type: 'button' }, 'Reset ' + base.name + ' defaults');
+    reset.addEventListener('click', function () { setTheme(function () { themeState = { preset: themeState.preset, font: null, alt: null, l: {} }; }); });
+    foot.appendChild(reset); studioBody.appendChild(foot);
+  }
+  function openStudio() { renderStudio(); studio.hidden = false; }
+  function closeStudio() { if (studioMode() === 'none') studio.hidden = true; }
+  document.getElementById('studio-close').addEventListener('click', closeStudio);
+  studio.addEventListener('click', function (e) { if (e.target === studio) closeStudio(); });
+  document.getElementById('c-appearance').addEventListener('click', function () { closeSettings(); openStudio(); });
 
   // ---------- flight details ----------
   var detail = document.getElementById('detail'), infoCache = new Map(), detailTimer = null, detailIdle = null;
@@ -1182,9 +1533,10 @@
   var CONTROLS = [['zoom-out', 245, 0.8], ['zoom-in', 115, 0.8], ['places-btn', 224, 0.83], ['gear', 136, 0.83], ['track-btn', 300, 0.8]];
   function placeControls() {
     CONTROLS.forEach(function (c) {
+      var rc = canvas.getBoundingClientRect(), ox = rc.left + window.scrollX + rc.width / 2, oy = rc.top + window.scrollY + rc.height / 2;
       var el = document.getElementById(c[0]), r = S / 2 * 0.94 * c[2], a = c[1] * D2R;
-      el.style.left = (window.innerWidth / 2 + Math.sin(a) * r) + 'px';
-      el.style.top = (window.innerHeight / 2 - Math.cos(a) * r) + 'px';
+      el.style.left = (ox + Math.sin(a) * r) + 'px';
+      el.style.top = (oy - Math.cos(a) * r) + 'px';
     });
   }
   window.addEventListener('resize', placeControls);
@@ -1192,6 +1544,9 @@
 
   // ---------- start ----------
   var serverCentre = null;
+  applyTheme(false);
+  resize();
+  placeControls();
   buildGeo();
   try { var savedTrack = localStorage.getItem(TRACK_KEY); if (savedTrack) setTimeout(function () { startTracking(savedTrack); }, 1500); } catch (e) { /* ignore */ }
   requestAnimationFrame(frame);

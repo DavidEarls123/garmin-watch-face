@@ -3,7 +3,8 @@
 A live radar of the aircraft around you, designed for a round desktop screen. It is centred on Galway by default.
 
 - North-up scope with range rings, compass, a slow sweep and the local airfields (EICM, EINN, EIKN, EICA, EIIM)
-- A faint outline of the land, coast and larger lakes (Lough Corrib, Mask, Derg…) underneath, so you can place the traffic
+- A smooth outline of the land, coast and lakes from 100 m OpenStreetMap data, with a finer level of detail at 5–20 nm, plus towns and area names (Galway Bay, Lough Corrib, the Burren, Connemara…)
+- **Seven looks** in the Appearance panel: Night Scope, Glass Cockpit, Paper Chart, Phosphor, Amber Tower, Red Devils and Minimal. Each one can be adjusted: six bundled fonts, aircraft colour schemes, and layout options (clock, info card, labels, rings, compass, map style, sweep, trails, scanlines). The panel docks on the right of wide screens, sits below the radar on phones, and opens from ⚙ → *Appearance…* (or `A`) on the round display. Add `?theme=chart` and similar to the URL to pick a look directly.
 - Aircraft icons point along their track, are coloured by altitude and leave a short trail
 - Each label shows callsign, flight level or altitude, a climb/descent arrow and ground speed
 - A **Nearest / Overhead now** panel shows type, registration, distance and bearing
@@ -70,11 +71,11 @@ With an online source, the server fetches traffic around whichever centre the sc
 
 ## Map
 
-`geo.js` holds the land and lake outlines for Ireland and the surrounding area (longitude −12° to −3°, latitude 50.3° to 56.8°). If you move the centre outside that area, the traffic still works but there's no map underneath.
+`geo.js` holds the land and lake outlines for Ireland and the surrounding area (longitude −12° to −3°, latitude 50.3° to 56.8°), at two levels of detail: about 60 m for ranges up to 25 nm and 250 m beyond. The outlines are drawn with gentle curves. Fonts in `fonts/` are bundled under the SIL Open Font License, so the display works offline. If you move the centre outside that area, the traffic still works but there's no map underneath.
 
 To build a map for another area, edit the bounds at the top of `tools/build_geo.py` and follow the instructions in that file.
 
-Map data © OpenStreetMap contributors, available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1.0/), via [@geo-maps](https://github.com/simonepri/geo-maps) (1 km resolution).
+Map data © OpenStreetMap contributors, available under the [Open Database License](https://opendatacommons.org/licenses/odbl/1.0/), via [@geo-maps](https://github.com/simonepri/geo-maps) (100 m resolution).
 
 **Building the physical display:** see [HARDWARE.md](HARDWARE.md) for the parts list, controls, and the 3D-printable cases in `case/`.
 
