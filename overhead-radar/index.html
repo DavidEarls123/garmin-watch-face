@@ -129,6 +129,8 @@
 <button class="ctl" id="track-btn" type="button" aria-label="Track a flight" title="Track a flight (T)"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg></button>
 <div class="panel" id="panel" hidden>
   <form class="sheet" id="sheet" novalidate>
+    <h2>Look</h2>
+    <div class="chips" id="look-chips"></div>
     <h2>Centre point</h2>
     <div class="chips" id="presets"></div>
     <label for="c-name">Name<input id="c-name" maxlength="16" autocomplete="off"></label>
@@ -512,6 +514,12 @@
            place: '#4a4a4a', apt: '#b0127a', home: '#b0127a', text: '#14324f', textDim: '#2d4f6e', textMute: '#5b7690', faint: '#8297aa',
            warn: '#c25a00', track: '#b0127a', select: '#c25a00', emergency: '#d10000', card: 'rgba(255,253,245,.93)', label: '#14324f', planeEdge: 'rgba(255,255,255,.95)' },
       l: { clock: 'top', card: 'card', labels: 'full', rings: 'rings', compass: 'letters', map: 'filled', sweep: false, trails: true, scanlines: false } },
+    greenchart: { name: 'Green Chart', font: 'grotesk', alt: 'ink',
+      c: { outside: '#e4e9d6', bg0: '#cfe6f2', bg1: '#b4d5e8', land: '#d6e8bf', coast: '#2f78b5', lake: '#bcdcee', lakeEdge: '#2f78b5',
+           sweep: '', ring: 'rgba(30,64,40,0.22)', ringText: '#2a5a3a', axis: 'rgba(30,64,40,0.1)', tick: '#5f7f68', tickMajor: '#1f3d2a', compass: '#1f3d2a',
+           place: '#3f4a40', apt: '#b0127a', home: '#b0127a', text: '#1c3826', textDim: '#2f5a3d', textMute: '#5b7b64', faint: '#86a08c',
+           warn: '#c25a00', track: '#b0127a', select: '#c25a00', emergency: '#d10000', card: 'rgba(250,253,244,.93)', label: '#1c3826', planeEdge: 'rgba(255,255,255,.95)' },
+      l: { clock: 'top', card: 'card', labels: 'full', rings: 'rings', compass: 'letters', map: 'filled', sweep: false, trails: true, scanlines: false } },
     phosphor: { name: 'Phosphor', font: 'techno', alt: 'green',
       c: { outside: '#000000', bg0: '#05170c', bg1: '#010603', land: 'rgba(40,120,60,0.16)', coast: 'rgba(90,230,130,0.6)', lake: 'rgba(0,10,4,0.65)', lakeEdge: 'rgba(90,230,130,0.35)',
            sweep: '90,255,140', ring: 'rgba(60,200,100,0.34)', ringText: 'rgba(130,255,170,0.75)', axis: 'rgba(60,200,100,0.16)', tick: 'rgba(60,200,100,0.5)', tickMajor: '#7dffaa', compass: '#7dffaa',
@@ -547,7 +555,17 @@
   };
   var THEME_KEY = 'overhead-radar-theme';
   var themeState = { preset: 'scope', font: null, alt: null, l: {} };
-  try { var ts0 = JSON.parse(localStorage.getItem(THEME_KEY) || 'null'); if (ts0 && THEMES[ts0.preset]) themeState = { preset: ts0.preset, font: ts0.font || null, alt: ts0.alt || null, l: ts0.l || {} }; } catch (e) { /* ignore */ }
+  function cleanTheme(t) {
+    if (!t || !THEMES[t.preset]) return null;
+    var l = {};
+    Object.keys(t.l || {}).forEach(function (k) {
+      var v = t.l[k];
+      if (LAYOUT_OPTIONS[k] ? LAYOUT_OPTIONS[k].some(function (o) { return o[0] === v; }) : typeof v === 'boolean') l[k] = v;
+    });
+    return { preset: t.preset, font: FONTS[t.font] ? t.font : null, alt: ALT_PALETTES[t.alt] ? t.alt : null, l: l };
+  }
+  try { var ts0 = cleanTheme(JSON.parse(localStorage.getItem(THEME_KEY) || 'null')); if (ts0) themeState = ts0; } catch (e) { /* ignore */ }
+  var themeFromUrl = !!THEMES[params.get('theme')];
   if (THEMES[params.get('theme')]) themeState = { preset: params.get('theme'), font: null, alt: null, l: {} };
   var TH = null, C = null, L = null, F = null, ALT_STOPS = null;
   function applyTheme(save) {
@@ -563,8 +581,15 @@
     if (document.fonts && document.fonts.load) {
       [F.bold, F.reg].forEach(function (w) { document.fonts.load(w + ' 20px ' + F.stack).catch(function () { /* falls back to the next font in the stack */ }); });
     }
-    if (save) { try { localStorage.setItem(THEME_KEY, JSON.stringify(themeState)); } catch (e) { /* ignore */ } }
+    if (save) {
+      try { localStorage.setItem(THEME_KEY, JSON.stringify(themeState)); } catch (e) { /* ignore */ }
+      // the radar server keeps the look as a system setting, so it survives browser resets and applies to every screen
+      if (typeof live !== 'undefined' && live) {
+        fetch('api/theme', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(themeState) }).catch(function () { /* offline: kept locally */ });
+      }
+    }
     if (typeof renderStudio === 'function') renderStudio();
+    if (typeof renderLookChips === 'function') renderLookChips();
   }
   function fnt(px, bold) { return (bold ? F.bold : F.reg) + ' ' + px.toFixed(1) + 'px ' + F.stack; }
 
@@ -1141,6 +1166,18 @@
     foot.appendChild(reset); studioBody.appendChild(foot);
   }
   function openStudio() { renderStudio(); studio.hidden = false; }
+  function renderLookChips() {
+    var box = document.getElementById('look-chips');
+    if (!box) return;
+    box.innerHTML = '';
+    Object.keys(THEMES).forEach(function (id) {
+      var b = el('button', { type: 'button', 'aria-pressed': String(themeState.preset === id) }, THEMES[id].name);
+      if (themeState.preset === id) b.style.borderColor = '#ffb547';
+      b.addEventListener('click', function () { setTheme(function () { themeState = { preset: id, font: null, alt: null, l: {} }; }); });
+      box.appendChild(b);
+    });
+  }
+  renderLookChips();
   function closeStudio() { if (studioMode() === 'none') studio.hidden = true; }
   document.getElementById('studio-close').addEventListener('click', closeStudio);
   studio.addEventListener('click', function (e) { if (e.target === studio) closeStudio(); });
@@ -1559,6 +1596,8 @@
       buildGeo();
     }
     if (c.poll_seconds) CFG.pollMs = c.poll_seconds * 1000;
+    var sysTheme = cleanTheme(c.theme);
+    if (sysTheme && !themeFromUrl) { themeState = sysTheme; applyTheme(false); try { localStorage.setItem(THEME_KEY, JSON.stringify(themeState)); } catch (e) { /* ignore */ } }
     poll();
   }).catch(function () { startDemo(); });
 })();

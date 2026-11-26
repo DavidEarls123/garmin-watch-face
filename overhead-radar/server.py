@@ -286,8 +286,40 @@ class Lookup:
         return {"hex": hex_, "callsign": callsign, "aircraft": f_ac.result(), "route": f_rt.result(), "photo": f_ph.result()}
 
 
+class Settings:
+    """Small JSON file holding system settings chosen on the screen (currently the look/theme)."""
+
+    def __init__(self, path, default_theme):
+        self.path = Path(path)
+        self.default_theme = default_theme
+        self.lock = threading.Lock()
+
+    def theme(self):
+        try:
+            return json.loads(self.path.read_text(encoding="utf-8")).get("theme")
+        except (OSError, ValueError):
+            return {"preset": self.default_theme, "font": None, "alt": None, "l": {}} if self.default_theme else None
+
+    def save_theme(self, theme):
+        clean = {
+            "preset": str(theme.get("preset", ""))[:32],
+            "font": (str(theme["font"])[:32] if theme.get("font") else None),
+            "alt": (str(theme["alt"])[:32] if theme.get("alt") else None),
+            "l": {str(k)[:16]: v for k, v in (theme.get("l") or {}).items()
+                  if isinstance(v, (bool, str)) and len(str(v)) <= 16 and re.fullmatch(r"[a-z]+", str(k))},
+        }
+        if not re.fullmatch(r"[a-z]+", clean["preset"]):
+            raise ValueError("bad preset")
+        with self.lock:
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"theme": clean}, indent=2), encoding="utf-8")
+            tmp.replace(self.path)
+        return clean
+
+
 class Handler(SimpleHTTPRequestHandler):
     lookup = None
+    settings = None
     feed = None
     args = None
 
@@ -304,12 +336,26 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        if path != "/api/theme":
+            self.send_error(404)
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 4096:
+                raise ValueError("body too large")
+            saved = self.settings.save_theme(json.loads(self.rfile.read(length)))
+        except (ValueError, AttributeError, TypeError) as e:
+            return self.send_json({"error": f"could not save theme: {e}"}, 400)
+        return self.send_json({"theme": saved})
+
     def do_GET(self):
         path, _, query = self.path.partition("?")
         if path == "/api/config":
             return self.send_json({"name": self.args.name, "lat": self.args.lat, "lon": self.args.lon,
                                    "poll_seconds": 2 if self.args.source in ("readsb", "hybrid") else self.args.interval,
-                                   "source": self.args.source})
+                                   "source": self.args.source, "theme": self.settings.theme()})
         if path == "/api/aircraft":
             q = urllib.parse.parse_qs(query)
             try:
@@ -366,6 +412,8 @@ def main():
                     help="readsb/dump1090 aircraft.json: a file path or an http:// URL")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--theme", default="", help="look used until one is chosen on screen, e.g. scope, glass, chart, greenchart, phosphor, amber, devils, minimal")
+    ap.add_argument("--settings", default=str(HERE / "settings.json"), help="where looks chosen on screen are saved")
     ap.add_argument("--no-lookups", action="store_true", help="don't look up routes, owners or photos for tapped aircraft")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
@@ -373,6 +421,7 @@ def main():
     Handler.args = args
     Handler.feed = Feed(args)
     Handler.lookup = Lookup()
+    Handler.settings = Settings(args.settings, args.theme)
     server = ThreadingHTTPServer((args.host, args.port), functools.partial(Handler, directory=str(HERE)))
     print(f"Overhead Radar on http://{args.host}:{args.port}  source={args.source}  centre={args.lat},{args.lon}")
     try:

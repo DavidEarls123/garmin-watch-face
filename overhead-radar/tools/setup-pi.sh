@@ -4,7 +4,8 @@
 #   sudo ./tools/setup-pi.sh                         # online data only (adsb.lol)
 #   sudo ./tools/setup-pi.sh --with-receiver         # + RTL-SDR dongle (V3 or similar) and readsb
 #   sudo ./tools/setup-pi.sh --with-receiver --rtlsdr-v4   # RTL-SDR Blog V4: also installs its driver
-#   sudo ./tools/setup-pi.sh --with-receiver --lat 53.2707 --lon -9.0568 --name Galway
+#   sudo ./tools/setup-pi.sh --with-receiver --lat 53.2707 --lon -9.0568 --name Galway --theme greenchart
+#   looks: scope, glass, chart, greenchart, phosphor, amber, devils, minimal (changeable later on screen)
 #
 # What it does:
 #   1. installs Chromium (for the full-screen page)
@@ -19,6 +20,7 @@ set -euo pipefail
 LAT=53.2707
 LON=-9.0568
 NAME=Galway
+THEME=scope
 RECEIVER=0
 V4=0
 KIOSK=1
@@ -31,7 +33,8 @@ while [[ $# -gt 0 ]]; do
         --lat) LAT="$2"; shift ;;
         --lon) LON="$2"; shift ;;
         --name) NAME="$2"; shift ;;
-        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+        --theme) THEME="$2"; shift ;;
+        -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1 (try --help)"; exit 1 ;;
     esac
     shift
@@ -106,7 +109,7 @@ After=network-online.target readsb.service
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 $APP_DIR/server.py --source $SOURCE --lat $LAT --lon $LON --name "$NAME"
+ExecStart=/usr/bin/python3 $APP_DIR/server.py --source $SOURCE --lat $LAT --lon $LON --name "$NAME" --theme $THEME
 Restart=always
 RestartSec=5
 User=$RUN_USER
